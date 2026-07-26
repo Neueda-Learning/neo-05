@@ -1,0 +1,14 @@
+# neo-05's OWN service (module 01: Credit Decisioning), on prod. Identical to
+# dev.params — a module carries no environment-specific values (the orchestrator URL is built
+# from the Cloud Map namespace in the template). The pipeline adds EnvironmentName + the
+# PINNED @sha256 images + DbEndpoint + AlbDnsName.
+ServiceName=neo-05
+Role=module
+PathPrefix=/neo-05
+ListenerRulePriority=50
+DbName=neo_05
+ServiceId=neo05
+DisplayName=Credit Decisioning
+Domain=credit
+Team=Team 05
+MockedDependencies=
