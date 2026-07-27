@@ -17,7 +17,7 @@ DisplayName=Credit Decisioning
 # The BIAN domain this module owns, reported on /info.
 Domain=credit
 # Whose module this is. Shown in the UI's identity box.
-Team=Team 05
+Team=Team 05 TabTab
 # Comma-separated external systems this module fakes — deliverable #4's "what has been
 # mocked" register, as live config rather than a paragraph that goes stale. Empty is a
 # claim, not an omission: it says this module talks to nothing outside itself.
