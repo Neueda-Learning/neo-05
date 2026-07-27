@@ -1,7 +1,7 @@
 # neo-05 — Credit Decisioning
 
 **Module 01 of ten.** One step of the neo-bank customer-onboarding journey, owned by
-**Team 05**. The journey is driven by
+**TabTab**. The journey is driven by
 [`neo-00`](https://github.com/gjavolce/neo-00), the orchestrator — which also owns the AWS
 environment this repo deploys itself into. You never call another module, and no module
 calls you: only the orchestrator does.
