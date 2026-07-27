@@ -94,7 +94,7 @@ class ModuleApplicationTests {
                 .andExpect(jsonPath("$.domain").value("credit"))
                 // The UI's identity box reads team + service. A team that never sets SERVICE_TEAM
                 // ships a screen claiming to be team 01's, so the field has to actually be served.
-                .andExpect(jsonPath("$.team").value("Team 05"))
+                .andExpect(jsonPath("$.team").value("Team 05 TabTab"))
                 .andExpect(jsonPath("$.mockedDependencies", hasSize(2)))
                 .andExpect(jsonPath("$.mockedDependencies[0]").value("id-verification-provider"));
     }

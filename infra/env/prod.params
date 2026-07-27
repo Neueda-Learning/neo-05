@@ -10,5 +10,5 @@ DbName=neo_05
 ServiceId=neo05
 DisplayName=Credit Decisioning
 Domain=credit
-Team=Team 05
+Team=Team 05 TabTab
 MockedDependencies=
