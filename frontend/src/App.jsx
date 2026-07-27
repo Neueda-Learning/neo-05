@@ -15,7 +15,7 @@ const HEALTH_MS = 10000;
  * single read-only list is not one.
  */
 const SCREENS = [
-  { id: 'applications', label: 'Applications' },
+  { id: 'applications', label: 'Aqqlications' },
   { id: 'cases', label: 'Cases', hint: 'your own table', disabled: true },
   { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
   { id: 'settings', label: 'Settings', hint: 'reference data', disabled: true },
