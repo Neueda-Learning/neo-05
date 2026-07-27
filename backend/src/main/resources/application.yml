@@ -60,7 +60,7 @@ service:
   name: ${SERVICE_NAME:Credit Decisioning}
   # Who owns this module. Shown in the UI's identity box, so set it to your own team or the
   # next person to open the app will think they are looking at team 01's work.
-  team: ${SERVICE_TEAM:Team 05}
+  team: ${SERVICE_TEAM:Team 05 TabTab}
   # BIAN domain this module owns — verification / policy / kyc / screening / credit /
   # agreement / account / card / support / analytics. Reported on /info.
   domain: ${SERVICE_DOMAIN:credit}
