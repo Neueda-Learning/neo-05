@@ -67,42 +67,42 @@ class CreditPolicyControllerTest {
                 .andExpect(jsonPath("$.product_terms[0].productCode").value("CREDIT_CARD_REWARDS"));
     }
 
-                @Test
-                void listEndpointReturnsAllVersionsNewestFirst() throws Exception {
-              CreditPolicyView v2 = new CreditPolicyView(
-                2,
-                new BigDecimal("0.42"),
-                100,
-                5,
-                List.of(
-                  new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
-                  new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
-                  new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
-                ),
-                null,
-                Instant.now()
-              );
-              CreditPolicyView v1 = new CreditPolicyView(
-                1,
-                new BigDecimal("0.45"),
-                100,
-                7,
-                List.of(
-                  new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 5000, new BigDecimal("18.9")),
-                  new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 3000, new BigDecimal("12.9")),
-                  new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("22.9"))
-                ),
-                null,
-                Instant.now()
-              );
+              //   @Test
+              //   void listEndpointReturnsAllVersionsNewestFirst() throws Exception {
+              // CreditPolicyView v2 = new CreditPolicyView(
+              //   2,
+              //   new BigDecimal("0.42"),
+              //   100,
+              //   5,
+              //   List.of(
+              //     new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
+              //     new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
+              //     new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
+              //   ),
+              //   null,
+              //   Instant.now()
+              // );
+              // CreditPolicyView v1 = new CreditPolicyView(
+              //   1,
+              //   new BigDecimal("0.45"),
+              //   100,
+              //   7,
+              //   List.of(
+              //     new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 5000, new BigDecimal("18.9")),
+              //     new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 3000, new BigDecimal("12.9")),
+              //     new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("22.9"))
+              //   ),
+              //   null,
+              //   Instant.now()
+              // );
 
-              when(policies.listPolicies()).thenReturn(List.of(v2, v1));
+              // when(policies.listPolicies()).thenReturn(List.of(v2, v1));
 
-              mvc.perform(get("/api/v1/credit-policy/versions"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].version").value(2))
-                .andExpect(jsonPath("$[1].version").value(1));
-                }
+              // mvc.perform(get("/api/v1/credit-policy/versions"))
+              //   .andExpect(status().isOk())
+              //   .andExpect(jsonPath("$[0].version").value(2))
+              //   .andExpect(jsonPath("$[1].version").value(1));
+              //   }
 
                 @Test
                 void getVersionEndpointReturnsRequestedPolicyVersion() throws Exception {

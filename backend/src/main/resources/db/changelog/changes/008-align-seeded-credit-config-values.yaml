@@ -1,6 +1,6 @@
 databaseChangeLog:
   - changeSet:
-      id: 009-align-credit-config-v1
+      id: 008-align-credit-config-v1
       author: neo-05
       preConditions:
         - onFail: MARK_RAN
@@ -42,7 +42,7 @@ databaseChangeLog:
             where: version = 1
 
   - changeSet:
-      id: 009-align-credit-config-v2
+      id: 008-align-credit-config-v2
       author: neo-05
       preConditions:
         - onFail: MARK_RAN
@@ -83,7 +83,7 @@ databaseChangeLog:
                   valueNumeric: null
             where: version = 2
   - changeSet:
-      id: 009-align-credit-config-v3
+      id: 008-align-credit-config-v3
       author: neo-05
       changes:
         - insert:
