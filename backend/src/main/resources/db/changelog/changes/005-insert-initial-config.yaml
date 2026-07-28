@@ -5,9 +5,9 @@ databaseChangeLog:
       preConditions:
         onFail: MARK_RAN
         onError: HALT
-        - sqlCheck:
-            expectedResult: "0"
-            sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
+          - sqlCheck:
+              expectedResult: "0"
+              sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
       changes:
         - insert:
             tableName: credit_config
