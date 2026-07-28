@@ -51,6 +51,7 @@ class CreditPolicyControllerTest {
                         new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 3000, new BigDecimal("12.9")),
                         new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("22.9"))
                 ),
+          null,
                 Instant.now()
         );
 
@@ -78,6 +79,7 @@ class CreditPolicyControllerTest {
                   new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
                   new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
                 ),
+                null,
                 Instant.now()
               );
               CreditPolicyView v1 = new CreditPolicyView(
@@ -90,6 +92,7 @@ class CreditPolicyControllerTest {
                   new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 3000, new BigDecimal("12.9")),
                   new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("22.9"))
                 ),
+                null,
                 Instant.now()
               );
 
@@ -113,6 +116,7 @@ class CreditPolicyControllerTest {
                   new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 3000, new BigDecimal("12.9")),
                   new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("22.9"))
                 ),
+                null,
                 Instant.now()
               );
 
@@ -136,6 +140,7 @@ class CreditPolicyControllerTest {
                         new ProductTermDTO("CREDIT_CARD_LOW_RATE", 19000, 3500, new BigDecimal("12.9")),
                         new ProductTermDTO("CREDIT_CARD_STUDENT", 13000, 2000, new BigDecimal("22.9"))
                 ),
+          null,
                 Instant.now()
         );
 

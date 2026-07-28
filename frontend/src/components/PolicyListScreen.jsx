@@ -19,6 +19,36 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
+function getPolicyName(row) {
+  if (row.policy_name && String(row.policy_name).trim()) {
+    return row.policy_name;
+  }
+
+  if (Array.isArray(row.product_terms) && row.product_terms.length > 0) {
+    const displayMap = {
+      CREDIT_CARD_REWARDS: 'PLATINUM',
+      CREDIT_CARD_LOW_RATE: 'PREMIUM',
+      CREDIT_CARD_STUDENT: 'STUDENT',
+      PLATINUM: 'PLATINUM',
+      PREMIUM: 'PREMIUM',
+      STUDENT: 'STUDENT',
+    };
+
+    const names = [...new Set(
+      row.product_terms
+        .map((term) => term?.productCode)
+        .filter(Boolean)
+        .map((code) => displayMap[code] || code)
+    )];
+
+    if (names.length > 0) {
+      return `${names.join(' / ')} (v${row.version})`;
+    }
+  }
+
+  return `Credit Policy v${row.version}`;
+}
+
 export default function PolicyListScreen({ onViewDetails }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,6 +72,11 @@ export default function PolicyListScreen({ onViewDetails }) {
   }, []);
 
   const columns = [
+    {
+      key: 'policy_name',
+      header: 'Policy Name',
+      render: (r) => getPolicyName(r),
+    },
     { key: 'version', header: 'Version', tight: true },
     { key: 'dti_limit', header: 'DTI Limit', tight: true },
     { key: 'rounding_step', header: 'Rounding Step', tight: true },

@@ -25,6 +25,9 @@ public record CreditPolicyView(
         
         @JsonProperty("product_terms")
         List<ProductTermDTO> productTerms,
+
+        @JsonProperty("policy_name")
+        String policyName,
         
         @JsonProperty("effective_from")
         Instant effectiveFrom) {
@@ -36,7 +39,29 @@ public record CreditPolicyView(
                 config.getRoundingStep().intValue(),
                 config.getSampleEvery(),
                 parsedTerms,
+                derivePolicyName(config.getProductTerms()),
                 config.getEffectiveFrom()
         );
+    }
+
+    private static String derivePolicyName(String rawProductTerms) {
+        if (rawProductTerms == null) {
+            return null;
+        }
+
+        String trimmed = rawProductTerms.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            return null;
+        }
+
+        String normalized = trimmed.toUpperCase();
+        if ("PLATIUM".equals(normalized)) {
+            return "PLATINUM";
+        }
+        return normalized;
     }
 }

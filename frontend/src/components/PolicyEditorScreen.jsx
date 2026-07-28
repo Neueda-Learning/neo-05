@@ -14,7 +14,8 @@ import '../styles.css';
  * - 0 < dtiLimit < 1
  * - sampleEvery ≥ 1
  */
-export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
+export default function PolicyEditorScreen({ selectedVersion, onBackToList, onOpenCurrentPolicy }) {
+  const isReadOnly = Number.isInteger(selectedVersion);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -121,6 +122,11 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
   // Submit new version
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isReadOnly) {
+      return;
+    }
+
     setError(null);
     setSuccess(null);
 
@@ -150,7 +156,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
   };
 
   if (loading) {
-    return <div className="editor-container"><p>Loading current policy...</p></div>;
+    return <div className="editor-container"><p>Loading policy...</p></div>;
   }
 
   return (
@@ -161,9 +167,19 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
             Back to policy list
           </Button>
         )}
+        {isReadOnly && onOpenCurrentPolicy && (
+          <Button variant="secondary" size="sm" onClick={onOpenCurrentPolicy}>
+            Open Current Policy Editor
+          </Button>
+        )}
       </div>
       <h1>Credit Policy Editor</h1>
       <p className="subtitle">UC06: Risk Manager — Manage credit policy without deploy</p>
+      {isReadOnly && (
+        <div className="success-box">
+          <strong>Read-only details:</strong> viewing saved policy version v{policy.version}.
+        </div>
+      )}
 
       {error && (
         <div className="error-box">
@@ -195,6 +211,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
               max="1"
               value={policy.dti_limit}
               onChange={e => updatePolicyField('dti_limit', e.target.value)}
+              disabled={isReadOnly}
               required
             />
           </div>
@@ -209,6 +226,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
               min="1"
               value={policy.rounding_step}
               onChange={e => updatePolicyField('rounding_step', e.target.value)}
+              disabled={isReadOnly}
               required
             />
           </div>
@@ -224,6 +242,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
               min="1"
               value={policy.sample_every}
               onChange={e => updatePolicyField('sample_every', e.target.value)}
+              disabled={isReadOnly}
               required
             />
           </div>
@@ -251,6 +270,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
                     onChange={e =>
                       updateProductTerm(i, 'minIncome', e.target.value)
                     }
+                    disabled={isReadOnly}
                     required
                   />
                 </div>
@@ -268,6 +288,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
                     onChange={e =>
                       updateProductTerm(i, 'maxLimit', e.target.value)
                     }
+                    disabled={isReadOnly}
                     required
                   />
                 </div>
@@ -284,6 +305,7 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
                     min="0.1"
                     value={term.apr}
                     onChange={e => updateProductTerm(i, 'apr', e.target.value)}
+                    disabled={isReadOnly}
                     required
                   />
                 </div>
@@ -292,11 +314,13 @@ export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
           ))}
         </section>
 
-        <div className="form-actions">
-          <button type="submit" disabled={submitting} className="btn-primary">
-            {submitting ? 'Creating version...' : 'Create New Policy Version'}
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div className="form-actions">
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? 'Creating version...' : 'Create New Policy Version'}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

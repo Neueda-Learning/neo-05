@@ -20,6 +20,13 @@
   padding: 0 var(--ds-space-2);
 }
 
+.policy-header-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-2);
+}
+
 /* PolicyEditorScreen (UC06) — Credit Policy Editor */
 .editor-container {
   max-width: 900px;

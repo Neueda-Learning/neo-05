@@ -114,6 +114,7 @@ export default function App() {
         <PolicyEditorScreen
           selectedVersion={selectedPolicyVersion}
           onBackToList={() => setScreen('policy-list')}
+          onOpenCurrentPolicy={() => setSelectedPolicyVersion(null)}
         />
       )}
     </AppShell>

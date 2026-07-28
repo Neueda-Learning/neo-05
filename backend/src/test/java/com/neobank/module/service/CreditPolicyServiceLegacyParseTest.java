@@ -52,4 +52,31 @@ class CreditPolicyServiceLegacyParseTest {
                         "CREDIT_CARD_STUDENT"
                 );
     }
+
+    @Test
+    void getCurrentPolicyParsesNamedProfileFromProductTerms() {
+        CreditPolicyService service = new CreditPolicyService(repository, new ObjectMapper());
+
+        CreditConfig namedProfile = new CreditConfig(
+                2,
+                "PREMIUM",
+                new BigDecimal("0.42"),
+                new BigDecimal("100"),
+                5,
+                Instant.now()
+        );
+
+        when(repository.findTopByOrderByVersionDesc()).thenReturn(Optional.of(namedProfile));
+
+        CreditPolicyView current = service.getCurrentPolicy();
+
+        assertThat(current.policyName()).isEqualTo("PREMIUM");
+        assertThat(current.productTerms()).hasSize(3);
+        assertThat(current.productTerms()).extracting(t -> t.productCode())
+                .containsExactly(
+                        "CREDIT_CARD_REWARDS",
+                        "CREDIT_CARD_LOW_RATE",
+                        "CREDIT_CARD_STUDENT"
+                );
+    }
 }

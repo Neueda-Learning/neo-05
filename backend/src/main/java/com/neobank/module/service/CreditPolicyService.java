@@ -52,6 +52,18 @@ public class CreditPolicyService {
             "STUDENT", "CREDIT_CARD_STUDENT"
         );
 
+            private static final List<ProductTermDTO> PLATINUM_PROFILE_TERMS = List.of(
+                new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9")),
+                new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 5000, new BigDecimal("12.9")),
+                new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"))
+            );
+
+            private static final List<ProductTermDTO> PREMIUM_PROFILE_TERMS = List.of(
+                new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
+                new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
+                new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
+            );
+
     private final CreditConfigRepository policies;
     private final ObjectMapper mapper;
 
@@ -235,9 +247,33 @@ public class CreditPolicyService {
             }
 
             return ordered;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException ignored) {
+            return parseNamedPolicyProfile(json);
+        } catch (RuntimeException e) {
             throw new RuntimeException("Failed to parse product terms", e);
         }
+    }
+
+    private List<ProductTermDTO> parseNamedPolicyProfile(String rawProductTerms) {
+        String normalized = normalizePolicyProfile(rawProductTerms);
+
+        return switch (normalized) {
+            case "PLATINUM" -> PLATINUM_PROFILE_TERMS;
+            case "PREMIUM" -> PREMIUM_PROFILE_TERMS;
+            default -> throw new RuntimeException("Failed to parse product terms");
+        };
+    }
+
+    private String normalizePolicyProfile(String rawProductTerms) {
+        if (rawProductTerms == null) {
+            return "";
+        }
+
+        String value = rawProductTerms.trim().toUpperCase();
+        if ("PLATIUM".equals(value)) {
+            return "PLATINUM";
+        }
+        return value;
     }
 
     private String normalizeProductCode(String code) {

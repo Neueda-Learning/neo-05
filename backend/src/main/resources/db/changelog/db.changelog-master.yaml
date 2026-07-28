@@ -12,3 +12,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-create-override-log.yaml
   - include:
       file: db/changelog/changes/005-insert-initial-config.yaml
+  - include:
+      file: db/changelog/changes/006-update-seeded-policy-profile-names.yaml
