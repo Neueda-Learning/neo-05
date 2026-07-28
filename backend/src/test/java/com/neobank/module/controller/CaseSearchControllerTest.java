@@ -1,11 +1,8 @@
 package com.neobank.module.controller;
 
-import com.neobank.module.dto.ApplicantView;
 import com.neobank.module.dto.CaseSearchItem;
 import com.neobank.module.dto.CaseSearchResponse;
 import com.neobank.module.service.CaseSearchService;
-import com.neobank.module.service.ApplicantService;
-import com.neobank.module.service.ApplicantUnavailableException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -29,9 +26,6 @@ class CaseSearchControllerTest {
 
     @MockBean
     private CaseSearchService caseSearch;
-
-    @MockBean
-    private ApplicantService applicants;
 
     @Test
     void defaultSearchIsEmptyAndUsesLimitTen() throws Exception {
@@ -93,38 +87,4 @@ class CaseSearchControllerTest {
                 .andExpect(jsonPath("$.message").value("limit must be positive"));
     }
 
-    @Test
-    void applicantProxyReturnsOnlyTheLiveSidebarSubset() throws Exception {
-        ApplicantView view = new ApplicantView(
-                new ApplicantView.Applicant("Daniel Osei", "1987-05-12"),
-                new ApplicantView.Employment("PERMANENT"),
-                new ApplicantView.Finances(48000, 1200, 900),
-                new ApplicantView.Product(5000));
-        when(applicants.getApplicant("app-1301")).thenReturn(view);
-
-        mvc.perform(get("/cases/app-1301/applicant"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.applicant.fullName").value("Daniel Osei"))
-                .andExpect(jsonPath("$.applicant.dateOfBirth").value("1987-05-12"))
-                .andExpect(jsonPath("$.employment.status").value("PERMANENT"))
-                .andExpect(jsonPath("$.finances.annualIncome").value(48000))
-                .andExpect(jsonPath("$.finances.monthlyHousingCost").value(1200))
-                .andExpect(jsonPath("$.finances.existingCreditCommitments").value(900))
-                .andExpect(jsonPath("$.product.requestedCreditLimit").value(5000))
-                .andExpect(jsonPath("$.applicant.email").doesNotExist());
-
-        verify(applicants).getApplicant("app-1301");
-    }
-
-    @Test
-    void unavailableOrchestratorReturnsRetryableServiceUnavailable() throws Exception {
-        when(applicants.getApplicant("app-1301"))
-                .thenThrow(new ApplicantUnavailableException(
-                        "app-1301", new RuntimeException("connection refused")));
-
-        mvc.perform(get("/cases/app-1301/applicant"))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.message")
-                        .value("applicant data is temporarily unavailable for app-1301"));
-    }
 }

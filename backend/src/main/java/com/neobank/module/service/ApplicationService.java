@@ -345,7 +345,26 @@ public class ApplicationService {
         CreditRecord row = creditRecords.findById(applicationId)
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
         CreditConfig config = resolveConfigForCase(row);
-        return CaseView.of(row, config.getDtiLimit());
+        
+        // Extract minIncome from productTerms for the product code
+        Integer minIncome = null;
+        if (row.getProductCode() != null) {
+            try {
+                Map<String, ProductTermsRaw> termsByCode = objectMapper.readValue(config.getProductTerms(), new TypeReference<>() {
+                });
+                ProductTermsRaw terms = termsByCode.get(row.getProductCode());
+                if (terms != null) {
+                    minIncome = terms.minIncome();
+                }
+            } catch (Exception e) {
+                log.warn("Failed to extract minIncome for productCode {}", row.getProductCode(), e);
+            }
+        }
+        
+        log.info("DEBUG: row.getDecisionReason() = {}", row.getDecisionReason());
+        CaseView result = CaseView.of(row, config.getDtiLimit(), minIncome);
+        log.info("DEBUG: result.workings().decisionReason() = {}", result.workings().decisionReason());
+        return result;
     }
 
         private CreditConfig resolveConfigForCase(CreditRecord row) {

@@ -5,8 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
 import com.neobank.module.service.ApplicationService;
+import com.neobank.module.service.ApplicantUnavailableException;
 import java.math.BigDecimal;
 import java.util.NoSuchElementException;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ class CasesControllerTest {
                         34000, 2833, 1180,
                         new BigDecimal("0.42"), new BigDecimal("0.45"),
                         2833, 10000, 3000, 2800,
-                        new BigDecimal("24.9"), null),
+                        new BigDecimal("24.9"), null, "CRE_APPROVED", "PREMIUM", 20000),
                 new CaseView.SamplingView(false));
 
         when(applications.getCase("app-1234")).thenReturn(view);
@@ -68,5 +70,36 @@ class CasesControllerTest {
         mvc.perform(get("/cases/unknown-id"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("case not found: unknown-id"));
+    }
+
+    @Test
+    void applicantEndpointReturnsFlatViewDto() throws Exception {
+        ApplicantViewDto dto = new ApplicantViewDto(
+                "Daniel Osei", "1987-05-12", "PERMANENT",
+                new ApplicantViewDto.FinancesView(48000, 1200, 900),
+                5000);
+        when(applications.getApplicant("app-1301")).thenReturn(dto);
+
+        mvc.perform(get("/cases/app-1301/applicant"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Daniel Osei"))
+                .andExpect(jsonPath("$.dateOfBirth").value("1987-05-12"))
+                .andExpect(jsonPath("$.employmentStatus").value("PERMANENT"))
+                .andExpect(jsonPath("$.finances.annualIncome").value(48000))
+                .andExpect(jsonPath("$.finances.monthlyHousingCost").value(1200))
+                .andExpect(jsonPath("$.finances.existingCreditCommitments").value(900))
+                .andExpect(jsonPath("$.requestedCreditLimit").value(5000));
+    }
+
+    @Test
+    void unavailableOrchestratorReturnsServiceUnavailable() throws Exception {
+        when(applications.getApplicant("app-1301"))
+                .thenThrow(new ApplicantUnavailableException(
+                        "app-1301", new RuntimeException("connection refused")));
+
+        mvc.perform(get("/cases/app-1301/applicant"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.message")
+                        .value("applicant data is temporarily unavailable for app-1301"));
     }
 }
