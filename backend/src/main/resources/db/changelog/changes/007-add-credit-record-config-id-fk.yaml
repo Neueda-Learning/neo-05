@@ -1,0 +1,50 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-credit-record-config-id-fk
+      author: neo-05
+      changes:
+        - addColumn:
+            tableName: credit_record
+            columns:
+              - column:
+                  name: credit_config_id
+                  type: BIGINT
+
+        - sql:
+            sql: |
+              UPDATE credit_record r
+              SET r.credit_config_id = (
+                SELECT MAX(c.config_id)
+                FROM credit_config c
+                WHERE c.version = r.credit_config_version
+              )
+              WHERE r.credit_config_id IS NULL
+
+        - createIndex:
+            tableName: credit_record
+            indexName: idx_credit_record_config_id
+            columns:
+              - column:
+                  name: credit_config_id
+
+        - addForeignKeyConstraint:
+            baseTableName: credit_record
+            baseColumnNames: credit_config_id
+            referencedTableName: credit_config
+            referencedColumnNames: config_id
+            constraintName: fk_credit_record_credit_config_id
+            onDelete: RESTRICT
+            onUpdate: RESTRICT
+
+      rollback:
+        - dropForeignKeyConstraint:
+            baseTableName: credit_record
+            constraintName: fk_credit_record_credit_config_id
+
+        - dropIndex:
+            tableName: credit_record
+            indexName: idx_credit_record_config_id
+
+        - dropColumn:
+            tableName: credit_record
+            columnName: credit_config_id
