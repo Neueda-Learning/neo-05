@@ -13,7 +13,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -130,18 +130,18 @@ public class ApplicationService {
             if (row == null || !row.isInProgress()) {
                 return;
             }
-
+                log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
                 CreditConfig activeConfig = creditConfigs
-                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(LocalDateTime.now())
+                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
                     .orElseThrow(() -> new IllegalStateException("No effective credit config found"));
                 ProductTerms terms = resolveTerms(activeConfig, request.application());
-
+                
                 ScoringInput input = scoringInput(request.application(), terms);
                 BigDecimal dti = input.monthlyIncome() <= 0
                     ? null
                     : BigDecimal.valueOf(input.monthlyOutgoings())
                         .divide(BigDecimal.valueOf(input.monthlyIncome()), 2, RoundingMode.HALF_UP);
-
+                dti = dti == null ? null : dti.min(BigDecimal.valueOf(99.99));
                 row.applyScoring(
                     activeConfig.getVersion(),
                     terms.productCode(),

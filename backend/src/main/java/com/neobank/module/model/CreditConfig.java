@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.PrePersist;
-import java.time.LocalDateTime;
 
 /**
  * Credit policy configuration versioned by integer, with product terms as a single field.

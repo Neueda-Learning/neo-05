@@ -1,75 +1,40 @@
-# Module 5 · Credit Decisioning — UC 00 · Process Application
+# Module 5 · Credit Decisioning — UC 03 · View Applicant
 
 > AI implementation brief, generated from the v5 spec (`spec/.../use-cases/`). Source of truth is the spec; regenerate, don't hand-edit.
 
 ## Context
 
 - Module: 5 · Credit Decisioning · category Rule · domain `credit` · command `assess-credit` · outcomes: APPROVED, REFERRED, DECLINED
-- Use case: 00 · Process Application · track B · prerequisite: none (foundation) · build shape: API→DB · primary screen: — feeds every screen (row visible on the board)
-- Data effect: one INSERT + 202 ack
+- Use case: 03 · View Applicant · track D · prerequisite: screen shell from 02 · build shape: API+FE · primary screen: Decision Workings sidebar
+- Data effect: none — by design
 - Platform rules (non-negotiable): the orchestrator is the only caller; the whole application arrives in the envelope (plus the v5 `outputs` block, Option A); steps are independent and re-orderable; the payload is NEVER stored — only `applicationId`; every module ships `GET /cases/{id}/applicant` proxying the orchestrator; big lists are empty by default and capped at 10 rows (≤10 hydration calls); ALL APIs are idempotent — same request twice, same result once; every endpoint appears in the service's OpenAPI 3.0 (Swagger) spec.
 
 ## Story
 
-As the orchestrator I need every execute request acknowledged immediately and recorded durably, so the journey can advance and every other use case has a row to work on.
+As a bank employee I want to see who a credit decision is about without leaving the record — and without this module ever copying applicant data.
 
 ## Contract
 
 ```
-POST /api/v1/credit/execute
-{ applicationId, correlationId,
-  command: "assess-credit",
-  application: { … }, outputs: { … } }
-→ 202 Accepted
-{ "status": "in-progress",
-  "applicationId": "app-1234",
-  "command": "assess-credit" }
+GET /cases/{id}/applicant →  (proxy)
+GET {orchestratorUrl}/api/v1/
+        applications/{applicationId}
+→ { …whole Application object… }
 ```
 
 ## Acceptance criteria
 
-1. POST /api/v1/credit/execute with a valid envelope → 202 Accepted immediately — no rule or provider work happens on the request thread; body carries status "in-progress", the applicationId and the command.
-2. Before the 202 is sent, exactly ONE CreditRecord row exists, keyed by applicationId, in an in-progress state — a crash right after the ack loses nothing.  ⟵ **checkpoint — exact value**
-3. Only the applicationId is persisted from the envelope — zero payload columns; the application object is handed to the off-thread worker, never stored.
-4. Repeated /execute for the same applicationId → 202 again, still one row, no re-processing; once decided, the callback replays the stored outcome.
-5. A malformed envelope (missing applicationId or command) → 400 with a JSON error body, and nothing is stored.
-6. The off-thread decision starts only after the row is committed — everything in this module triggers from this row.
-7. The new row is immediately visible to the search and case endpoints as an in-progress case.
+1. The Decision Workings sidebar renders fullName, dateOfBirth, employment.status, finances (annualIncome, monthlyHousingCost, existingCreditCommitments) and product.requestedCreditLimit — fetched live.
+2. For app-1301 the sidebar shows Daniel Osei · PERMANENT · £48,000 — the lender reads the person beside the DTI that referred him.  ⟵ **checkpoint — exact value**
+3. Nothing from the response is persisted — restart the module, the sidebar still works, the schema still holds zero applicant-identifying columns.
+4. Orchestrator unreachable → the sidebar shows a retryable error state; the workings panel still renders every stored number from local data.
+5. The proxy passes applicationId through untouched — no id mapping tables.
 
 ## Expected data changes
 
-- **INSERT one CreditRecord row** keyed by applicationId — the ONLY applicant data ever stored.
-- The row starts in-progress; every later use case UPDATEs or reads this same row.
-- Idempotency = the unique key on applicationId; the trigger point = the commit.
-
-## The Application entity — every field that arrives in the API
-
-> The whole Application object is delivered in the envelope on every call. Fields this module reads are marked ●. The payload is NEVER stored — only `applicationId`.
-
-| field | example | meaning |
-|---|---|---|
-| ● applicationId | app-1234 | journey key — every record this module stores is keyed by it |
-| channel | MOBILE_APP | where the application was made — module 1's business, no credit rule reads it |
-| submittedAt | 2026-07-21T21:40:00Z | when the customer submitted — timestamps always UTC |
-| applicant.fullName | Maria Nowak | modules 2/3/4 match on it — credit judges numbers, not names; the UI shows it via the live proxy only |
-| applicant.dateOfBirth | 1996-04-11 | module 1 checks age against the product — not a credit input here |
-| applicant.email / mobile | maria@…  +4477… | contact for module 6's agreement — ignored here |
-| applicant.nationality | PL | module 3's document cross-check — ignored here |
-| applicant.countryOfResidence | GB | module 4's jurisdiction input — ignored here |
-| applicant.taxResidencies | ["GB"] | module 2's policy fact — ignored here |
-| applicant.currentAddress | 42 Hanbury St, E1 5JP | module 8 posts the card — monthsAtAddress next to it is candidate 09's stability input |
-| identityDocument.* | PASSPORT · ZS1234567 | module 3's provider payload — not a credit input |
-| employment.status / employerName / months | PERMANENT · 11 | candidate inputs, not locked ones: status feeds candidate 11's weighting, months feeds candidate 10's tenure rule |
-| ● finances.annualIncome | 34000 | rule 1: against the product's minIncome · rule 2: ÷12 = monthly income, the DTI denominator · rule 3: one month's income is the first limit candidate |
-| ● finances.monthlyHousingCost / existingCreditCommitments | 1000 · 180 | rule 2: summed = monthly outgoings, the DTI numerator — the whole affordability story |
-| ● product.productCode | CREDIT_CARD_REWARDS | selects the CreditConfig terms this decision runs under: minIncome, maxLimit, APR |
-| ● product.requestedCreditLimit | 3000 | rule 3: the third limit candidate — never grant more than asked; capping to it is CRE_LIMIT_CAPPED_TO_REQUEST |
-| delivery.useCurrentAddress / address | true · null | module 8's delivery decision — ignored here |
-| consents.termsAccepted | true | module 1 enforces it, module 6 re-reads it — not a credit input |
-| consents.paperless / marketingConsent | true · false | statement + marketing preferences — nothing to decide here |
-| outputs  (v5 · Option A) | { } | step results accumulated by the orchestrator — THIS module is why it exists: the orchestrator copies approvedLimit + apr from the credit callback into outputs for modules 6, 7 and 8. Never read here |
-
-_Ground rules: unknown fields are ignored on the way in and never emitted on the way out · countries ISO alpha-2 uppercase · dates YYYY-MM-DD · money = integer GBP · optional = null, never "" or 0._
+- **Zero writes, zero copies.** The whole point: one copy of the truth, owned by the orchestrator.
+- MySQL is not even touched on this path.
+- If the orchestrator is down the module stays healthy — the workings are local, only the sidebar degrades.
 
 ## Diagrams
 
@@ -77,24 +42,23 @@ _Ground rules: unknown fields are ignored on the way in and never emitted on the
 
 ### Sequence — this use case
 
-![Sequence — this use case](diagrams/uc-00-sequence.jpg)
+![Sequence — this use case](diagrams/uc-03-sequence.jpg)
 
 <details><summary>mermaid source</summary>
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Orchestrator
+    participant UI
     participant Controller
     participant Service
-    participant MySQL
-    Orchestrator->>Controller: POST /api/v1/credit/execute
-    Controller->>Service: accept(envelope)
-    Service->>MySQL: INSERT CreditRecord (applicationId only)
-    MySQL-->>Service: committed
-    Controller-->>Orchestrator: 202 — in-progress
-    Service->>Service: async: decide, then callback
-    Note over Orchestrator,MySQL: The ack never waits for a decision — the row is the hand-off point between the request thread and the worker that does the real work.
+    participant Orchestrator
+    UI->>Controller: GET /cases/app-1301/applicant
+    Controller->>Service: getApplicant(applicationId)
+    Service->>Orchestrator: GET /api/v1/applications/app-1301
+    Orchestrator-->>Service: 200 — whole Application
+    Service-->>Controller: ApplicantViewDto (subset)
+    Controller-->>UI: 200 OK — sidebar payload
 ```
 
 </details>
@@ -211,19 +175,15 @@ stateDiagram-v2
 
 ## Out of scope
 
-Deciding anything (that is the engine use case, which runs off-thread AFTER this row exists); the callback content.
+Caching applicant data; storing any applicant field in this module's schema (the workings columns store this module's arithmetic — nothing identifying).
 
 ## Build notes
 
-Partially implemented by the template — the 202-then-callback controller is given. Your work: the durable CreditRecord row, idempotency by applicationId, and the async hand-off. EVERY other use case depends on this one: no row, no review, no queue, no override, no report.
+THE standard application-fetch GET every module ships (v5 platform rule) — the same proxy hydrates the board's name column (UC 01) and the queue's rows (UC 04). It goes to the orchestrator only, server-side, so the browser needs no CORS exception. The sidebar shows the declared finances beside the stored workings — the lender sees input and arithmetic together.
 
 ## Tests
 
-Slice test: 202 shape + row inserted before the ack returns; repeated /execute → one row; malformed envelope → 400 and nothing stored.
-
-## Sequence caption
-
-The ack never waits for a decision — the row is the hand-off point between the request thread and the worker that does the real work.
+Service test with a mocked orchestrator client: happy path + orchestrator down → sidebar error, workings still render.
 
 ## Definition of done
 
