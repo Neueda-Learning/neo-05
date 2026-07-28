@@ -52,4 +52,10 @@ export const api = {
   getApplication: (id) => request(`/api/v1/applications/${id}`),
   listCreditPolicies: () => request('/api/v1/credit-policy/versions'),
   getCreditPolicyByVersion: (version) => request(`/api/v1/credit-policy/${version}`),
+  getCase: (id) => request(`/api/v1/cases/${id}`),
+  getApplicant: (id) => request(`/api/v1/cases/${id}/applicant`),
+  searchCases: (query, limit = 10) =>
+    request(`/api/v1/cases?q=${encodeURIComponent(query)}&limit=${limit}`),
+  getCaseApplicant: (applicationId) =>
+    request(`/api/v1/cases/${encodeURIComponent(applicationId)}/applicant`),
 };

@@ -1,18 +1,33 @@
 package com.neobank.module.service;
 
+import com.neobank.module.dto.ApplicantViewDto;
+import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
+import com.neobank.module.integrations.orchestrator.Application;
 import com.neobank.module.integrations.orchestrator.ApplicationRequest;
 import com.neobank.module.integrations.orchestrator.OrchestratorClient;
+import com.neobank.module.model.CreditConfig;
+import com.neobank.module.model.CreditRecord;
 import com.neobank.module.model.Decision;
-import com.neobank.module.model.DemoShowcase;
-import com.neobank.module.repository.DemoShowcaseRepository;
+import com.neobank.module.repository.CreditConfigRepository;
+import com.neobank.module.repository.CreditRecordRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * <h2>Your module's work happens here. This is the class you came here to write.</h2>
@@ -47,8 +62,10 @@ public class ApplicationService {
     private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
 
     private final Executor executor;
-    private final DemoShowcaseRepository demoShowcase;
+    private final CreditRecordRepository creditRecords;
+    private final CreditConfigRepository creditConfigs;
     private final OrchestratorClient orchestrator;
+    private final ObjectMapper objectMapper;
 
     /**
      * {@code applicationTaskExecutor} is the thread pool Spring Boot configures for you. Tune it in
@@ -57,11 +74,14 @@ public class ApplicationService {
      * once.
      */
     public ApplicationService(@Qualifier("applicationTaskExecutor") Executor executor,
-                              DemoShowcaseRepository demoShowcase,
+                              CreditRecordRepository creditRecords,
+                              CreditConfigRepository creditConfigs,
                               OrchestratorClient orchestrator) {
         this.executor = executor;
-        this.demoShowcase = demoShowcase;
+        this.creditRecords = creditRecords;
+        this.creditConfigs = creditConfigs;
         this.orchestrator = orchestrator;
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -71,8 +91,24 @@ public class ApplicationService {
      * the orchestrator is holding a connection open, and a module that does its work on the request
      * thread turns a fast journey into a slow one.</p>
      */
+    @Transactional
     public void processApplicationAsync(ApplicationRequest request) {
-        executor.execute(() -> processApplication(request));
+        String applicationId = request.applicationId();
+        CreditRecord existing = creditRecords.findById(applicationId).orElse(null);
+
+        if (existing == null) {
+            boolean inserted = tryInsertInProgress(applicationId);
+            if (inserted) {
+                scheduleAfterCommit(() -> processApplication(request));
+                return;
+            }
+
+            existing = creditRecords.findById(applicationId).orElse(null);
+        }
+
+        if (existing != null && existing.hasFinalOutcome()) {
+            scheduleAfterCommit(() -> replayStoredOutcome(applicationId));
+        }
     }
 
     /**
@@ -91,30 +127,247 @@ public class ApplicationService {
     void processApplication(ApplicationRequest request) {
         String applicationId = request.applicationId();
         try {
-            // 1 — say something. summary() is the one line every module logs on receipt.
-            log.info("Hello world from processApplication — {}", request.summary());
+            log.info("Received application {}", request.summary());
 
-            // 2 — store something. ⚠️ demo_showcase is a placeholder; see DemoShowcase.
-            demoShowcase.save(new DemoShowcase(applicationId, Decision.ACCEPTED));
+            CreditRecord row = creditRecords.findById(applicationId).orElse(null);
+            if (row == null || !row.isInProgress()) {
+                return;
+            }
+                log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
+                CreditConfig activeConfig = creditConfigs
+                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
+                    .orElseThrow(() -> new IllegalStateException("No effective credit config found"));
+                ProductTerms terms = resolveTerms(activeConfig, request.application());
+                
+                ScoringInput input = scoringInput(request.application(), terms);
+                BigDecimal dti = input.monthlyIncome() <= 0
+                    ? null
+                    : BigDecimal.valueOf(input.monthlyOutgoings())
+                        .divide(BigDecimal.valueOf(input.monthlyIncome()), 2, RoundingMode.HALF_UP);
+                dti = dti == null ? null : dti.min(BigDecimal.valueOf(99.99));
+                row.applyScoring(
+                    activeConfig.getVersion(),
+                    terms.productCode(),
+                    input.annualIncome(),
+                    input.monthlyIncome(),
+                    input.monthlyOutgoings(),
+                    dti,
+                    input.incomeBasisLimit(),
+                    input.requestedLimit(),
+                    terms.maxLimit(),
+                    null,
+                    terms.apr(),
+                    null);
 
-            // 3 — report something. Always ACCEPTED until you write rules.
-            orchestrator.applicationStatusUpdate(applicationId, Decision.ACCEPTED,
-                    "hello world from processApplication");
+                if (terms.minIncome() > input.annualIncome()) {
+                row.markFinal(CreditRecord.STATUS_REJECTED, "CRE_REJECTED_MIN_INCOME");
+                creditRecords.save(row);
+                orchestrator.applicationStatusUpdate(applicationId, Decision.REJECTED, "CRE_REJECTED_MIN_INCOME");
+                return;
+                }
+
+                if (dti == null || dti.compareTo(activeConfig.getDtiLimit()) > 0) {
+                row.markFinal(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
+                creditRecords.save(row);
+                orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED,
+                        "CRE_AFFORDABILITY_EXCEEDED");
+                return;
+                }
+
+                int rawLimit = Math.min(input.incomeBasisLimit(), Math.min(terms.maxLimit(), input.requestedLimit()));
+                int roundingStep = activeConfig.getRoundingStep().intValue();
+                int grantedLimit = roundingStep <= 0 ? rawLimit : (rawLimit / roundingStep) * roundingStep;
+                String capReason = capReason(rawLimit, input.incomeBasisLimit(), input.requestedLimit(), terms.maxLimit());
+
+                row.applyScoring(
+                    activeConfig.getVersion(),
+                    terms.productCode(),
+                    input.annualIncome(),
+                    input.monthlyIncome(),
+                    input.monthlyOutgoings(),
+                    dti,
+                    input.incomeBasisLimit(),
+                    input.requestedLimit(),
+                    terms.maxLimit(),
+                    grantedLimit,
+                    terms.apr(),
+                    capReason);
+                row.markFinal(CreditRecord.STATUS_ACCEPTED, capReason);
+            creditRecords.save(row);
+                orchestrator.applicationStatusUpdate(applicationId, Decision.ACCEPTED, capReason);
         } catch (RuntimeException e) {
             // A module that throws never reports, and the orchestrator then waits out its 30s
             // timeout and ends the journey FAILED with nothing to explain it. So: refer it to a
             // human and say why. Keep this guard when you replace the body above.
             log.error("processApplication failed for {} — referring", applicationId, e);
+            creditRecords.findById(applicationId).ifPresent(row -> {
+                row.markFinal(CreditRecord.STATUS_REFERRED, "module error: " + e);
+                creditRecords.save(row);
+            });
             orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED,
                     "module error: " + e);
         }
     }
 
+    private ProductTerms resolveTerms(CreditConfig config, Application application) {
+        String normalizedCode = normalizeProductCode(application);
+        Map<String, ProductTermsRaw> termsByCode;
+        try {
+            termsByCode = objectMapper.readValue(config.getProductTerms(), new TypeReference<>() {
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to parse credit_config.product_terms", e);
+        }
+
+        ProductTermsRaw raw = termsByCode.get(normalizedCode);
+        if (raw == null) {
+            raw = termsByCode.get(legacyAlias(normalizedCode));
+        }
+        if (raw == null) {
+            throw new IllegalStateException("Unsupported product code in config: " + normalizedCode);
+        }
+        return new ProductTerms(normalizedCode, raw.minIncome(), raw.maxLimit(), raw.apr());
+    }
+
+    private ScoringInput scoringInput(Application application, ProductTerms terms) {
+        int annualIncome = 0;
+        int monthlyOutgoings = 0;
+        int requestedLimit = 0;
+
+        if (application != null && application.finances() != null) {
+            annualIncome = nz(application.finances().annualIncome());
+            monthlyOutgoings = nz(application.finances().monthlyHousingCost())
+                    + nz(application.finances().existingCreditCommitments());
+        }
+        if (application != null && application.product() != null) {
+            requestedLimit = nz(application.product().requestedCreditLimit());
+        }
+
+        int monthlyIncome = annualIncome / 12;
+        int incomeBasisLimit = monthlyIncome;
+        return new ScoringInput(annualIncome, monthlyIncome, monthlyOutgoings, incomeBasisLimit, requestedLimit);
+    }
+
+    private String normalizeProductCode(Application application) {
+        String code = application == null || application.product() == null ? null : application.product().productCode();
+        if (code == null) {
+            return "STANDARD";
+        }
+        return switch (code) {
+            case "CREDIT_CARD_STANDARD" -> "STANDARD";
+            case "CREDIT_CARD_REWARDS" -> "REWARDS";
+            case "CREDIT_CARD_STUDENT" -> "STUDENT";
+            default -> code;
+        };
+    }
+
+    private String legacyAlias(String normalizedCode) {
+        return switch (normalizedCode) {
+            case "STANDARD" -> "PREMIUM";
+            case "REWARDS" -> "PLATINUM";
+            default -> normalizedCode;
+        };
+    }
+
+    private String capReason(int rawLimit, int incomeBasisLimit, int requestedLimit, int productMaxLimit) {
+        if (rawLimit == incomeBasisLimit) {
+            return "CRE_APPROVED";
+        }
+        if (rawLimit == requestedLimit) {
+            return "CRE_LIMIT_CAPPED_TO_REQUEST";
+        }
+        return "CRE_LIMIT_CAPPED_TO_BAND_MAX";
+    }
+
+    private int nz(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private record ProductTerms(String productCode, int minIncome, int maxLimit, BigDecimal apr) {
+    }
+
+    private record ProductTermsRaw(Integer minIncome, Integer maxLimit, BigDecimal apr) {
+    }
+
+    private record ScoringInput(int annualIncome,
+                                int monthlyIncome,
+                                int monthlyOutgoings,
+                                int incomeBasisLimit,
+                                int requestedLimit) {
+    }
+
+    private boolean tryInsertInProgress(String applicationId) {
+        try {
+            creditRecords.save(CreditRecord.inProgress(applicationId));
+            return true;
+        } catch (DataIntegrityViolationException duplicate) {
+            return false;
+        }
+    }
+
+    private void scheduleAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    executor.execute(task);
+                }
+            });
+            return;
+        }
+        executor.execute(task);
+    }
+
+    private void replayStoredOutcome(String applicationId) {
+        creditRecords.findById(applicationId)
+                .filter(CreditRecord::hasFinalOutcome)
+                .ifPresent(row -> orchestrator.applicationStatusUpdate(
+                        applicationId,
+                        asDecision(row.getOutcome()),
+                        row.getDecisionReason() == null ? "replayed stored outcome" : row.getDecisionReason()));
+    }
+
+    private Decision asDecision(String outcome) {
+        return switch (outcome) {
+            case CreditRecord.STATUS_ACCEPTED -> Decision.ACCEPTED;
+            case CreditRecord.STATUS_REJECTED -> Decision.REJECTED;
+            case CreditRecord.STATUS_REFERRED -> Decision.REFERRED;
+            default -> throw new IllegalArgumentException("Unsupported outcome: " + outcome);
+        };
+    }
+
     /** Everything this module has answered, newest first — what its own UI reads. */
     @Transactional(readOnly = true)
     public List<DemoShowcaseView> findAll() {
-        return demoShowcase.findAllByOrderByCreatedAtDescIdDesc().stream()
+        return creditRecords.findAllByOrderBySubmittedAtDescApplicationIdDesc().stream()
                 .map(DemoShowcaseView::of)
                 .toList();
+    }
+
+    /**
+     * Read a stored decision and its workings — UC 02.
+     * The dtiLimit comes from the pinned config version, not the record itself.
+     *
+     * @throws NoSuchElementException if no case exists for the given applicationId
+     */
+    @Transactional(readOnly = true)
+    public CaseView getCase(String applicationId) {
+        CreditRecord row = creditRecords.findById(applicationId)
+                .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+        CreditConfig config = creditConfigs.findById(row.getCreditConfigVersion())
+                .orElseThrow(() -> new IllegalStateException(
+                        "config version " + row.getCreditConfigVersion() + " not found"));
+        return CaseView.of(row, config.getDtiLimit());
+    }
+
+    /**
+     * Fetch and return applicant details from the orchestrator — UC 03.
+     * This is a live proxy call, never persisted. The applicant data is always fetched fresh.
+     *
+     * @throws Exception if the orchestrator is unreachable or returns an error
+     */
+    public ApplicantViewDto getApplicant(String applicationId) {
+        Application application = orchestrator.fetchApplication(applicationId);
+        return ApplicantViewDto.of(application);
     }
 }

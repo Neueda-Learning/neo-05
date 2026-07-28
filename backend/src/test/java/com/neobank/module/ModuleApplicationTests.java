@@ -110,15 +110,31 @@ class ModuleApplicationTests {
                 .andExpect(jsonPath("$.serviceId").value("neo05"))
                 .andExpect(jsonPath("$.command").value("process-application"));
 
-        // The row the placeholder writes. Filtered by id, not counted: H2 is shared across the
-        // tests in this context, so a size assertion would depend on execution order.
+        // UC00 handoff point: the durable row exists and is visible immediately as in-progress.
         mvc.perform(get("/api/v1/applications"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.applicationId == 'IT-ONE')].status")
-                        .value(org.hamcrest.Matchers.hasItem("ACCEPTED")))
+                .value(org.hamcrest.Matchers.hasItem("in-progress")))
                 .andExpect(jsonPath("$[?(@.applicationId == 'IT-ONE')].createdAt")
                         .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.notNullValue())));
     }
+
+        @Test
+        void duplicateExecuteIsIdempotentAndKeepsOneRow() throws Exception {
+        mvc.perform(post("/api/v1/applications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(application("IT-DUP")))
+            .andExpect(status().isAccepted());
+
+        mvc.perform(post("/api/v1/applications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(application("IT-DUP")))
+            .andExpect(status().isAccepted());
+
+        mvc.perform(get("/api/v1/applications"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.applicationId == 'IT-DUP')]", hasSize(1)));
+        }
 
     @Test
     void anApplicationWithoutAnIdIsRejected() throws Exception {
@@ -133,6 +149,22 @@ class ModuleApplicationTests {
                 .andExpect(jsonPath("$.message").value(
                         org.hamcrest.Matchers.containsString("applicationId")));
     }
+
+            @Test
+            void anApplicationWithoutACommandIsRejected() throws Exception {
+            mvc.perform(post("/api/v1/applications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"applicationId":"IT-NO-CMD","application":{"channel":"WEB"}}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                    org.hamcrest.Matchers.containsString("command")));
+
+                mvc.perform(get("/api/v1/applications"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[?(@.applicationId == 'IT-NO-CMD')]", hasSize(0)));
+            }
 
     @Test
     void malformedJsonIsA400WithSomethingToRead() throws Exception {

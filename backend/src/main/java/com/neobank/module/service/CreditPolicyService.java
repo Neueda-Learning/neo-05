@@ -121,7 +121,7 @@ public class CreditPolicyService {
 
         String serializedTerms = serializeProductTerms(request.productTerms());
 
-        CreditConfig version = new CreditConfig(
+        CreditConfig version = CreditConfig.of(
                 nextVersion,
                 serializedTerms,
                 request.dtiLimit(),

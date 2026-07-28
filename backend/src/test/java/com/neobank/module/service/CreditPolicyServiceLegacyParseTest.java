@@ -26,7 +26,7 @@ class CreditPolicyServiceLegacyParseTest {
     void getCurrentPolicyParsesLegacySeededObjectShape() {
         CreditPolicyService service = new CreditPolicyService(repository, new ObjectMapper());
 
-        CreditConfig legacy = new CreditConfig(
+        CreditConfig legacy = CreditConfig.of(
                 2,
                 """
                 {"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},
@@ -57,7 +57,7 @@ class CreditPolicyServiceLegacyParseTest {
     void getCurrentPolicyParsesNamedProfileFromProductTerms() {
         CreditPolicyService service = new CreditPolicyService(repository, new ObjectMapper());
 
-        CreditConfig namedProfile = new CreditConfig(
+        CreditConfig namedProfile = CreditConfig.of(
                 2,
                 "PREMIUM",
                 new BigDecimal("0.42"),
