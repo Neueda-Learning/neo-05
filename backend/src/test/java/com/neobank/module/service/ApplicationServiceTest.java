@@ -23,6 +23,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * The three things the placeholder does, and the guard that keeps a failure reportable.
@@ -36,6 +37,7 @@ class ApplicationServiceTest {
     private CreditRecordRepository creditRecords;
     private CreditConfigRepository creditConfigs;
     private OrchestratorClient orchestrator;
+    private CreditRecordAcceptanceService acceptance;
     private ApplicationService service;
 
     @BeforeEach
@@ -43,8 +45,9 @@ class ApplicationServiceTest {
         creditRecords = mock(CreditRecordRepository.class);
         creditConfigs = mock(CreditConfigRepository.class);
         orchestrator = mock(OrchestratorClient.class);
+        acceptance = mock(CreditRecordAcceptanceService.class);
         // Runnable::run — the work happens inline, so there is nothing to wait for.
-        service = new ApplicationService(Runnable::run, creditRecords, creditConfigs, orchestrator);
+        service = new ApplicationService(Runnable::run, acceptance, creditRecords, creditConfigs, orchestrator);
         when(creditRecords.save(any(CreditRecord.class))).thenAnswer(call -> call.getArgument(0));
         when(creditRecords.findById(any())).thenReturn(Optional.empty());
         when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any(Instant.class)))
@@ -79,7 +82,7 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void storesOneInProgressRowAndReportsAccepted() {
+    void commitsTheInProgressHandoffBeforeProcessingAndReportsAccepted() {
         CreditRecord inProgress = CreditRecord.inProgress("SIM-01");
         when(creditRecords.findById("SIM-01"))
             .thenReturn(Optional.empty())
@@ -89,8 +92,9 @@ class ApplicationServiceTest {
 
         ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
         verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
-        assertThat(saved.getAllValues().getFirst().getApplicationId()).isEqualTo("SIM-01");
-        assertThat(saved.getAllValues().getFirst().getOutcome()).isEqualTo("IN_PROGRESS");
+        verify(acceptance).insertInProgress("SIM-01");
+        assertThat(saved.getAllValues().getLast().getApplicationId()).isEqualTo("SIM-01");
+        assertThat(saved.getAllValues().getLast().getOutcome()).isEqualTo("ACCEPTED");
 
         verify(orchestrator).applicationStatusUpdate("SIM-01", Decision.ACCEPTED,
             "CRE_APPROVED");
@@ -104,7 +108,23 @@ class ApplicationServiceTest {
         service.processApplicationAsync(request("SIM-02"));
 
         verify(creditRecords, never()).save(any(CreditRecord.class));
+        verify(acceptance, never()).insertInProgress(any());
         verify(orchestrator, never()).applicationStatusUpdate(eq("SIM-02"), any(), any());
+    }
+
+    @Test
+    void duplicateKeyFromTheShortInsertTransactionIsHandledIdempotently() {
+        CreditRecord existing = CreditRecord.inProgress("SIM-RACE");
+        when(creditRecords.findById("SIM-RACE"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existing));
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(acceptance).insertInProgress("SIM-RACE");
+
+        service.processApplicationAsync(request("SIM-RACE"));
+
+        verify(creditRecords, never()).save(any(CreditRecord.class));
+        verify(orchestrator, never()).applicationStatusUpdate(eq("SIM-RACE"), any(), any());
     }
 
     @Test
@@ -198,7 +218,7 @@ class ApplicationServiceTest {
         service.processApplicationAsync(request("SIM-ZERO-INCOME", 0, 0, 0, 1000));
 
         ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
-        verify(creditRecords, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
 
         assertThat(decided.getMonthlyIncome()).isZero();
@@ -220,7 +240,7 @@ class ApplicationServiceTest {
         service.processApplicationAsync(request("SIM-MONTHLY", 36000, 100, 100, 4000));
 
         ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
-        verify(creditRecords, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
 
         assertThat(decided.getMonthlyIncome()).isEqualTo(3000);
@@ -241,7 +261,7 @@ class ApplicationServiceTest {
         service.processApplicationAsync(request("SIM-REQUEST", 72000, 100, 100, 2500));
 
         ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
-        verify(creditRecords, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
 
         assertThat(decided.getMonthlyIncome()).isEqualTo(6000);
@@ -263,7 +283,7 @@ class ApplicationServiceTest {
         service.processApplicationAsync(request("SIM-MAX", 72000, 100, 100, 9000));
 
         ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
-        verify(creditRecords, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
 
         assertThat(decided.getMonthlyIncome()).isEqualTo(6000);
