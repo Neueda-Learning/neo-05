@@ -1,5 +1,7 @@
 package com.neobank.module.service;
 
+import com.neobank.module.dto.ApplicantViewDto;
+import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
 import com.neobank.module.integrations.orchestrator.Application;
 import com.neobank.module.integrations.orchestrator.ApplicationRequest;
@@ -13,8 +15,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,18 +133,18 @@ public class ApplicationService {
             if (row == null || !row.isInProgress()) {
                 return;
             }
-
+                log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
                 CreditConfig activeConfig = creditConfigs
-                    .findTopByOrderByVersionDesc()
-                    .orElseThrow(() -> new IllegalStateException("No credit config found"));
+                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
+                    .orElseThrow(() -> new IllegalStateException("No effective credit config found"));
                 ProductTerms terms = resolveTerms(activeConfig, request.application());
-
+                
                 ScoringInput input = scoringInput(request.application(), terms);
                 BigDecimal dti = input.monthlyIncome() <= 0
                     ? null
                     : BigDecimal.valueOf(input.monthlyOutgoings())
                         .divide(BigDecimal.valueOf(input.monthlyIncome()), 2, RoundingMode.HALF_UP);
-
+                dti = dti == null ? null : dti.min(BigDecimal.valueOf(99.99));
                 row.applyScoring(
                     activeConfig.getVersion(),
                     terms.productCode(),
@@ -338,5 +342,32 @@ public class ApplicationService {
         return creditRecords.findAllByOrderBySubmittedAtDescApplicationIdDesc().stream()
                 .map(DemoShowcaseView::of)
                 .toList();
+    }
+
+    /**
+     * Read a stored decision and its workings — UC 02.
+     * The dtiLimit comes from the pinned config version, not the record itself.
+     *
+     * @throws NoSuchElementException if no case exists for the given applicationId
+     */
+    @Transactional(readOnly = true)
+    public CaseView getCase(String applicationId) {
+        CreditRecord row = creditRecords.findById(applicationId)
+                .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+        CreditConfig config = creditConfigs.findById(row.getCreditConfigVersion())
+                .orElseThrow(() -> new IllegalStateException(
+                        "config version " + row.getCreditConfigVersion() + " not found"));
+        return CaseView.of(row, config.getDtiLimit());
+    }
+
+    /**
+     * Fetch and return applicant details from the orchestrator — UC 03.
+     * This is a live proxy call, never persisted. The applicant data is always fetched fresh.
+     *
+     * @throws Exception if the orchestrator is unreachable or returns an error
+     */
+    public ApplicantViewDto getApplicant(String applicationId) {
+        Application application = orchestrator.fetchApplication(applicationId);
+        return ApplicantViewDto.of(application);
     }
 }

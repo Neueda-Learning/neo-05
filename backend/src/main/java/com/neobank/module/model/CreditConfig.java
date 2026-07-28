@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
 
 /**
  * Credit policy configuration versioned by integer, with product terms as a single field.

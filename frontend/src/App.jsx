@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppShell, Button, SideBrand, SideNav, StatusPill } from './design-system';
 import RequestsScreen from './components/RequestsScreen.jsx';
+import CaseDetailScreen from './components/CaseDetailScreen.jsx';
 import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
 import CasesScreen from './components/CasesScreen.jsx';
 import { api } from './api.js';
@@ -35,6 +36,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [health, setHealth] = useState(null);
   const [info, setInfo] = useState(null);
+  const [selectedCase, setSelectedCase] = useState(null);
 
   const reload = useCallback(async () => {
     try {
@@ -99,7 +101,16 @@ export default function App() {
       footer="One of ten modules · applications arrive from the orchestrator, never from this UI"
     >
       {screen === 'applications' && (
-        <RequestsScreen requests={requests} error={error} info={info} />
+        selectedCase ? (
+          <CaseDetailScreen caseId={selectedCase} onClose={() => setSelectedCase(null)} />
+        ) : (
+          <RequestsScreen
+            requests={requests}
+            error={error}
+            info={info}
+            onRowClick={setSelectedCase}
+          />
+        )
       )}
       {screen === 'policy-editor' && (
         <PolicyEditorScreen />
