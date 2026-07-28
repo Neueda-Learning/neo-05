@@ -181,6 +181,10 @@ public class CreditRecord {
         return monthlyIncome;
     }
 
+    public BigDecimal getDti() {
+        return dti;
+    }
+
     public Integer getRequestedLimit() {
         return requestedLimit;
     }
