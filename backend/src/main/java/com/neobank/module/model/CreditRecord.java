@@ -220,4 +220,20 @@ public class CreditRecord {
     public String getCapReason() {
         return capReason;
     }
+
+    public boolean isSampled() {
+        return sampled;
+    }
+
+    public Instant getSubmittedAt() {
+        return submittedAt;
+    }
+
+    public String getDecisionReason() {
+        return decisionReason;
+    }
+
+    public Instant getDecidedAt() {
+        return decidedAt;
+    }
 }

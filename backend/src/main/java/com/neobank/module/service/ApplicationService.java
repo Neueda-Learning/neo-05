@@ -1,5 +1,6 @@
 package com.neobank.module.service;
 
+import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
 import com.neobank.module.integrations.orchestrator.Application;
@@ -17,6 +18,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -356,5 +358,16 @@ public class ApplicationService {
                 .orElseThrow(() -> new IllegalStateException(
                         "config version " + row.getCreditConfigVersion() + " not found"));
         return CaseView.of(row, config.getDtiLimit());
+    }
+
+    /**
+     * Fetch and return applicant details from the orchestrator — UC 03.
+     * This is a live proxy call, never persisted. The applicant data is always fetched fresh.
+     *
+     * @throws Exception if the orchestrator is unreachable or returns an error
+     */
+    public ApplicantViewDto getApplicant(String applicationId) {
+        Application application = orchestrator.fetchApplication(applicationId);
+        return ApplicantViewDto.of(application);
     }
 }

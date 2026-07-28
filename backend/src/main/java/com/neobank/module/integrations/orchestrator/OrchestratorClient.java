@@ -56,4 +56,18 @@ public class OrchestratorClient {
                     + "will notice", applicationId, e.toString());
         }
     }
+
+    /**
+     * Fetch the full application from the orchestrator by ID — UC 03.
+     *
+     * <p>A read-only proxy: the whole Application object is fetched live and never persisted.
+     * If the orchestrator is unreachable, an exception is thrown to be caught at the controller
+     * level.</p>
+     */
+    public Application fetchApplication(String applicationId) {
+        return http.get()
+                .uri(applicationsUrl + "/" + applicationId)
+                .retrieve()
+                .body(Application.class);
+    }
 }
