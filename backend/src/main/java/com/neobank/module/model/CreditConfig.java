@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /**
  * One versioned row of credit policy — insert-only, never updated or deleted.
@@ -55,4 +57,30 @@ public class CreditConfig {
     public BigDecimal getRoundingStep() { return roundingStep; }
     public int getSampleEvery() { return sampleEvery; }
     public Instant getEffectiveFrom() { return effectiveFrom; }
+
+    /**
+     * Compatibility factory used by services/tests that construct config rows as value objects.
+     */
+    public static CreditConfig of(int version,
+                                  String productTerms,
+                                  BigDecimal dtiLimit,
+                                  BigDecimal roundingStep,
+                                  Integer sampleEvery,
+                                  Instant effectiveFrom) {
+        return new CreditConfig(version, productTerms, dtiLimit, roundingStep,
+                sampleEvery == null ? 0 : sampleEvery, effectiveFrom);
+    }
+
+    /**
+     * Compatibility overload for callers still using LocalDateTime.
+     */
+    public static CreditConfig of(int version,
+                                  String productTerms,
+                                  BigDecimal dtiLimit,
+                                  BigDecimal roundingStep,
+                                  Integer sampleEvery,
+                                  LocalDateTime effectiveFrom) {
+        Instant instant = effectiveFrom == null ? null : effectiveFrom.toInstant(ZoneOffset.UTC);
+        return of(version, productTerms, dtiLimit, roundingStep, sampleEvery, instant);
+    }
 }
