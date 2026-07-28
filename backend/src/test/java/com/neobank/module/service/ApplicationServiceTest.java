@@ -47,7 +47,7 @@ class ApplicationServiceTest {
         service = new ApplicationService(Runnable::run, creditRecords, creditConfigs, orchestrator);
         when(creditRecords.save(any(CreditRecord.class))).thenAnswer(call -> call.getArgument(0));
         when(creditRecords.findById(any())).thenReturn(Optional.empty());
-        when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any()))
+        when(creditConfigs.findTopByOrderByVersionDesc())
                 .thenReturn(Optional.of(CreditConfig.of(
                         1,
                         "{\"REWARDS\":{\"minIncome\":18000,\"maxLimit\":5000,\"apr\":12.9}}",
@@ -117,7 +117,7 @@ class ApplicationServiceTest {
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(inProgress))
             .thenReturn(Optional.of(inProgress));
-        when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any()))
+        when(creditConfigs.findTopByOrderByVersionDesc())
             .thenThrow(new IllegalStateException("database on fire"));
 
         service.processApplicationAsync(request("SIM-03"));
@@ -186,7 +186,7 @@ class ApplicationServiceTest {
         when(creditRecords.findById("SIM-ZERO-INCOME"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(inProgress));
-        when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any()))
+        when(creditConfigs.findTopByOrderByVersionDesc())
                 .thenReturn(Optional.of(CreditConfig.of(
                         2,
                         "{\"REWARDS\":{\"minIncome\":0,\"maxLimit\":5000,\"apr\":12.9}}",

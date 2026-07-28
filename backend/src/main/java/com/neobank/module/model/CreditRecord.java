@@ -197,6 +197,10 @@ public class CreditRecord {
         return grantedLimit;
     }
 
+    public boolean isSampled() {
+        return sampled;
+    }
+
     public String getCapReason() {
         return capReason;
     }
