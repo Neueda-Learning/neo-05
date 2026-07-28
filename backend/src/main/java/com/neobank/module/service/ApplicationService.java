@@ -148,6 +148,7 @@ public class ApplicationService {
                 dti = dti == null ? null : dti.min(BigDecimal.valueOf(99.99));
                 row.applyScoring(
                     activeConfig.getVersion(),
+                    activeConfig.getConfigId(),
                     terms.productCode(),
                     input.annualIncome(),
                     input.monthlyIncome(),
@@ -182,6 +183,7 @@ public class ApplicationService {
 
                 row.applyScoring(
                     activeConfig.getVersion(),
+                    activeConfig.getConfigId(),
                     terms.productCode(),
                     input.annualIncome(),
                     input.monthlyIncome(),
@@ -367,12 +369,23 @@ public class ApplicationService {
     public CaseView getCase(String applicationId) {
         CreditRecord row = creditRecords.findById(applicationId)
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
-        CreditConfig config = creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(
-                row.getCreditConfigVersion())
-                .orElseThrow(() -> new IllegalStateException(
-                        "config version " + row.getCreditConfigVersion() + " not found"));
+        CreditConfig config = resolveConfigForCase(row);
         return CaseView.of(row, config.getDtiLimit());
     }
+
+        private CreditConfig resolveConfigForCase(CreditRecord row) {
+        Long configId = row.getCreditConfigId();
+        if (configId != null) {
+            return creditConfigs.findById(configId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "config id " + configId + " not found"));
+        }
+
+        return creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(
+                row.getCreditConfigVersion())
+            .orElseThrow(() -> new IllegalStateException(
+                "config version " + row.getCreditConfigVersion() + " not found"));
+        }
 
     /**
      * Fetch and return applicant details from the orchestrator — UC 03.

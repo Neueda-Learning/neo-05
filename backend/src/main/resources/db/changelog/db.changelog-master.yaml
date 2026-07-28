@@ -14,3 +14,5 @@ databaseChangeLog:
       file: db/changelog/changes/005-insert-initial-config.yaml
   - include:
       file: db/changelog/changes/006-update-credit-config-and-record.yaml
+  - include:
+      file: db/changelog/changes/007-add-credit-record-config-id-fk.yaml
