@@ -169,20 +169,36 @@ public class CreditRecord {
         return outcome;
     }
 
-    public Instant getSubmittedAt() {
-        return submittedAt;
+    public String getMachineOutcome() {
+        return machineOutcome;
     }
 
-    public String getDecisionReason() {
-        return decisionReason;
+    public String getReference() {
+        return reference;
+    }
+
+    public Integer getCreditConfigVersion() {
+        return creditConfigVersion;
+    }
+
+    public Integer getAnnualIncome() {
+        return annualIncome;
     }
 
     public Integer getMonthlyIncome() {
         return monthlyIncome;
     }
 
-    public BigDecimal getDti() {
+    public Integer getMonthlyOutgoings() {
+        return monthlyOutgoings;
+    }
+
+    public java.math.BigDecimal getDti() {
         return dti;
+    }
+
+    public Integer getIncomeBasisLimit() {
+        return incomeBasisLimit;
     }
 
     public Integer getRequestedLimit() {
@@ -195,6 +211,10 @@ public class CreditRecord {
 
     public Integer getGrantedLimit() {
         return grantedLimit;
+    }
+
+    public java.math.BigDecimal getApr() {
+        return apr;
     }
 
     public String getCapReason() {
