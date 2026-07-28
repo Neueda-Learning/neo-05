@@ -1,0 +1,55 @@
+databaseChangeLog:
+
+  - changeSet:
+      id: 002-create-override-log
+      author: neo-01
+      comment: >
+        Audit trail for manual overrides. Every row is permanent - never delete.
+        One verification_record may have many overrides (1:N).
+      changes:
+        - createTable:
+            tableName: override_log
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: application_id
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: old_outcome
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: new_outcome
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reason
+                  type: VARCHAR(512)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: operator
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: overridden_at
+                  type: DATETIME
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: override_log
+            baseColumnNames: application_id
+            referencedTableName: verification_record
+            referencedColumnNames: application_id
+            constraintName: fk_override_log_verification_record
