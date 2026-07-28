@@ -1,0 +1,144 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-credit-record
+      author: neo-05
+      changes:
+        - createTable:
+            tableName: credit_record
+            columns:
+              - column:
+                  name: application_id
+                  type: VARCHAR(64)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: outcome
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: machine_outcome
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reference
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: credit_config_version
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_code
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: annual_income
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: monthly_income
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: monthly_outgoings
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dti
+                  type: DECIMAL(4,2)
+              - column:
+                  name: income_basis_limit
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requested_limit
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_max_limit
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: granted_limit
+                  type: INT
+              - column:
+                  name: apr
+                  type: DECIMAL(3,1)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cap_reason
+                  type: VARCHAR(32)
+              - column:
+                  name: sampled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sample_position
+                  type: INT
+              - column:
+                  name: claimed_by
+                  type: VARCHAR(128)
+              - column:
+                  name: claimed_at
+                  type: TIMESTAMP
+              - column:
+                  name: decided_by
+                  type: VARCHAR(128)
+              - column:
+                  name: decided_at
+                  type: TIMESTAMP
+              - column:
+                  name: decision_reason
+                  type: VARCHAR(512)
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: credit_record
+            indexName: idx_credit_record_application
+            columns:
+              - column:
+                  name: application_id
+        - createIndex:
+            tableName: credit_record
+            indexName: idx_credit_record_submitted
+            columns:
+              - column:
+                  name: submitted_at
+        - createIndex:
+            tableName: credit_record
+            indexName: idx_credit_record_reference
+            columns:
+              - column:
+                  name: reference
+        - addForeignKeyConstraint:
+            baseTableName: credit_record
+            baseColumnNames: credit_config_version
+            referencedTableName: credit_config
+            referencedColumnNames: version
+            constraintName: fk_credit_record_credit_config
+            onDelete: RESTRICT
+            onUpdate: RESTRICT
+      rollback:
+        - dropForeignKeyConstraint:
+          baseTableName: credit_record
+          constraintName: fk_credit_record_credit_config
+        - dropTable:
+            tableName: credit_record
