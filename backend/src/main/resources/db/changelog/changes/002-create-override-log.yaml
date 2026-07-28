@@ -50,6 +50,6 @@ databaseChangeLog:
         - addForeignKeyConstraint:
             baseTableName: override_log
             baseColumnNames: application_id
-            referencedTableName: verification_record
+            referencedTableName: credit_record
             referencedColumnNames: application_id
-            constraintName: fk_override_log_verification_record
+            constraintName: fk_override_log_credit_record
