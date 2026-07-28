@@ -1,0 +1,98 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-update-credit-config-and-record
+      author: neo-05
+      changes:
+        - dropForeignKeyConstraint:
+            baseTableName: credit_record
+            constraintName: fk_credit_record_credit_config
+
+        - dropPrimaryKey:
+            tableName: credit_config
+
+        - addColumn:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: config_id
+                  type: BIGINT
+
+        - sql:
+            sql: UPDATE credit_config SET config_id = version WHERE config_id IS NULL
+
+        - addNotNullConstraint:
+            tableName: credit_config
+            columnName: config_id
+            columnDataType: BIGINT
+
+        - addPrimaryKey:
+            tableName: credit_config
+            columnNames: config_id
+            constraintName: pk_credit_config
+
+        - addAutoIncrement:
+            tableName: credit_config
+            columnName: config_id
+            columnDataType: BIGINT
+
+        - addColumn:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_code
+                  type: VARCHAR(32)
+              - column:
+                  name: apr
+                  type: DOUBLE
+              - column:
+                  name: min_income
+                  type: INT
+              - column:
+                  name: max_limit
+                  type: INT
+
+        - addColumn:
+            tableName: credit_record
+            columns:
+              - column:
+                  name: applicant_fullname
+                  type: VARCHAR(255)
+
+      rollback:
+        - dropColumn:
+            tableName: credit_record
+            columnName: applicant_fullname
+
+        - dropColumn:
+            tableName: credit_config
+            columnName: product_code
+        - dropColumn:
+            tableName: credit_config
+            columnName: apr
+        - dropColumn:
+            tableName: credit_config
+            columnName: min_income
+        - dropColumn:
+            tableName: credit_config
+            columnName: max_limit
+
+        - dropPrimaryKey:
+            tableName: credit_config
+
+        - dropColumn:
+            tableName: credit_config
+            columnName: config_id
+
+        - addPrimaryKey:
+            tableName: credit_config
+            columnNames: version
+            constraintName: pk_credit_config_version
+
+        - addForeignKeyConstraint:
+            baseTableName: credit_record
+            baseColumnNames: credit_config_version
+            referencedTableName: credit_config
+            referencedColumnNames: version
+            constraintName: fk_credit_record_credit_config
+            onDelete: RESTRICT
+            onUpdate: RESTRICT
