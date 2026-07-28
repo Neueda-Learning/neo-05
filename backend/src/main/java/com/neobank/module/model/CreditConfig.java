@@ -1,18 +1,30 @@
 package com.neobank.module.model;
 
+
+import java.math.BigDecimal;
+import java.time.Instant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
+import jakarta.persistence.PrePersist;
 import java.time.LocalDateTime;
+
+/**
+ * Credit policy configuration versioned by integer, with product terms as a single field.
+ * current = MAX(version). A new version is the WHOLE config: all three products' terms
+ * plus dtiLimit, roundingStep, sampleEvery.
+ */
 
 @Entity
 @Table(name = "credit_config")
 public class CreditConfig {
 
     @Id
+
     @Column(name = "version", nullable = false)
+
     private Integer version;
 
     @Column(name = "product_terms", nullable = false, length = 255)
@@ -27,11 +39,16 @@ public class CreditConfig {
     @Column(name = "sample_every", nullable = false)
     private Integer sampleEvery;
 
-    @Column(name = "effective_from", nullable = false)
-    private LocalDateTime effectiveFrom;
+
+    @Column(name = "effective_from", nullable = false, updatable = false)
+    private Instant effectiveFrom;
+
 
     protected CreditConfig() {
         // JPA
+    }
+  
+     private CreditConfig() {
     }
 
     public static CreditConfig of(Integer version,
@@ -39,7 +56,7 @@ public class CreditConfig {
                                   BigDecimal dtiLimit,
                                   BigDecimal roundingStep,
                                   Integer sampleEvery,
-                                  LocalDateTime effectiveFrom) {
+                                  Instant effectiveFrom) {
         CreditConfig config = new CreditConfig();
         config.version = version;
         config.productTerms = productTerms;
@@ -48,6 +65,13 @@ public class CreditConfig {
         config.sampleEvery = sampleEvery;
         config.effectiveFrom = effectiveFrom;
         return config;
+    }
+
+    @PrePersist
+    void onCreate() {
+        if (effectiveFrom == null) {
+            effectiveFrom = Instant.now();
+        }
     }
 
     public Integer getVersion() {
@@ -70,7 +94,7 @@ public class CreditConfig {
         return sampleEvery;
     }
 
-    public LocalDateTime getEffectiveFrom() {
+    public Instant getEffectiveFrom() {
         return effectiveFrom;
     }
 }

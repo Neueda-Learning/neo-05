@@ -7,6 +7,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CreditConfigRepository extends JpaRepository<CreditConfig, Integer> {
 
-    Optional<CreditConfig> findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(
+    /**
+     * Get the current (highest version) credit policy configuration.
+     * current = MAX(version).
+     */
+    Optional<CreditConfig> findTopByOrderByVersionDesc();
+  Optional<CreditConfig> findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(
             LocalDateTime now);
 }
