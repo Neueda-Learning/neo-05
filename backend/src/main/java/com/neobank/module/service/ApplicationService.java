@@ -13,7 +13,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -132,8 +131,8 @@ public class ApplicationService {
             }
 
                 CreditConfig activeConfig = creditConfigs
-                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(LocalDateTime.now())
-                    .orElseThrow(() -> new IllegalStateException("No effective credit config found"));
+                    .findTopByOrderByVersionDesc()
+                    .orElseThrow(() -> new IllegalStateException("No credit config found"));
                 ProductTerms terms = resolveTerms(activeConfig, request.application());
 
                 ScoringInput input = scoringInput(request.application(), terms);
