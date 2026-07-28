@@ -21,7 +21,7 @@ databaseChangeLog:
                     nullable: false
 
               - column:
-                  name: product_type
+                  name: product_code
                   type: VARCHAR(64)
                   constraints:
                     nullable: false
