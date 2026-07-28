@@ -163,10 +163,11 @@ public class ApplicationService {
                 return;
                 }
 
-                if (dti != null && dti.compareTo(activeConfig.getDtiLimit()) > 0) {
-                row.markFinal(CreditRecord.STATUS_REFERRED, "CRE_REFERRED_DTI");
+                if (dti == null || dti.compareTo(activeConfig.getDtiLimit()) > 0) {
+                row.markFinal(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
                 creditRecords.save(row);
-                orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED, "CRE_REFERRED_DTI");
+                orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED,
+                        "CRE_AFFORDABILITY_EXCEEDED");
                 return;
                 }
 

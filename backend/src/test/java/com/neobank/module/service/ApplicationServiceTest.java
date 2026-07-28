@@ -176,7 +176,38 @@ class ApplicationServiceTest {
 
         service.processApplicationAsync(request("SIM-DTI", 36000, 2500, 1000, 2000));
 
-        verify(orchestrator).applicationStatusUpdate("SIM-DTI", Decision.REFERRED, "CRE_REFERRED_DTI");
+        verify(orchestrator).applicationStatusUpdate(
+                "SIM-DTI", Decision.REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
+    }
+
+    @Test
+    void zeroMonthlyIncomeIsReferredWithoutDividingByZero() {
+        CreditRecord inProgress = CreditRecord.inProgress("SIM-ZERO-INCOME");
+        when(creditRecords.findById("SIM-ZERO-INCOME"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(inProgress));
+        when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any()))
+                .thenReturn(Optional.of(CreditConfig.of(
+                        2,
+                        "{\"REWARDS\":{\"minIncome\":0,\"maxLimit\":5000,\"apr\":12.9}}",
+                        BigDecimal.valueOf(0.45),
+                        BigDecimal.valueOf(100),
+                        7,
+                        Instant.now().minusSeconds(24 * 60 * 60))));
+
+        service.processApplicationAsync(request("SIM-ZERO-INCOME", 0, 0, 0, 1000));
+
+        ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
+        verify(creditRecords, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        CreditRecord decided = saved.getAllValues().getLast();
+
+        assertThat(decided.getMonthlyIncome()).isZero();
+        assertThat(decided.getDti()).isNull();
+        assertThat(decided.getGrantedLimit()).isNull();
+        assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_REFERRED);
+        assertThat(decided.getDecisionReason()).isEqualTo("CRE_AFFORDABILITY_EXCEEDED");
+        verify(orchestrator).applicationStatusUpdate(
+                "SIM-ZERO-INCOME", Decision.REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
     }
 
     @Test
