@@ -47,9 +47,6 @@ public class CreditConfig {
     protected CreditConfig() {
         // JPA
     }
-  
-     private CreditConfig() {
-    }
 
     public static CreditConfig of(Integer version,
                                   String productTerms,

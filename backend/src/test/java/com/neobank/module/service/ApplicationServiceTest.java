@@ -18,7 +18,7 @@ import com.neobank.module.model.Decision;
 import com.neobank.module.repository.CreditConfigRepository;
 import com.neobank.module.repository.CreditRecordRepository;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ class ApplicationServiceTest {
                         BigDecimal.valueOf(0.45),
                         BigDecimal.valueOf(100),
                         7,
-                        LocalDateTime.now().minusDays(1))));
+                        Instant.now().minusSeconds(24 * 60 * 60))));
     }
 
     private static ApplicationRequest request(String id) {
