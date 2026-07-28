@@ -30,6 +30,9 @@ public class CreditRecord {
     @Column(name = "reference", nullable = false, length = 32)
     private String reference;
 
+    @Column(name = "applicant_fullname", length = 255)
+    private String applicantFullname;
+
     @Column(name = "credit_config_version", nullable = false)
     private Integer creditConfigVersion;
 
@@ -154,6 +157,10 @@ public class CreditRecord {
         this.capReason = capReason;
     }
 
+    public void setApplicantFullname(String applicantFullname) {
+        this.applicantFullname = applicantFullname;
+    }
+
     public String apiStatus() {
         if (STATUS_IN_PROGRESS.equals(outcome)) {
             return "in-progress";
@@ -175,6 +182,10 @@ public class CreditRecord {
 
     public String getReference() {
         return reference;
+    }
+
+    public String getApplicantFullname() {
+        return applicantFullname;
     }
 
     public Integer getCreditConfigVersion() {
