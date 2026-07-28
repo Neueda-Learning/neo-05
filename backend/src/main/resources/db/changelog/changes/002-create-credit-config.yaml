@@ -22,7 +22,7 @@ databaseChangeLog:
 
               - column:
                   name: product_type
-                  type: VARCHAR(16)
+                  type: VARCHAR(64)
                   constraints:
                     nullable: false
 
