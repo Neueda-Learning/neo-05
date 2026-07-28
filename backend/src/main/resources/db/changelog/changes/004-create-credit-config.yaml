@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-credit-config
+      author: lisa
+      changes:
+        - createTable:
+            tableName: credit_config
+            columns:
+
+              - column:
+                  name: version
+                  type: INT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: product_terms
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: dti_limit
+                  type: DECIMAL(5,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: rounding_step
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: sample_every
+                  type: INT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: effective_from
+                  type: DATETIME
+                  constraints:
+                    nullable: false
