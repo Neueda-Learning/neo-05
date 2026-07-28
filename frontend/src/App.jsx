@@ -3,6 +3,7 @@ import { AppShell, Button, SideBrand, SideNav, StatusPill } from './design-syste
 import RequestsScreen from './components/RequestsScreen.jsx';
 import CaseDetailScreen from './components/CaseDetailScreen.jsx';
 import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
+import CasesScreen from './components/CasesScreen.jsx';
 import { api } from './api.js';
 
 const POLL_MS = 2000;
@@ -18,7 +19,7 @@ const HEALTH_MS = 10000;
  */
 const SCREENS = [
   { id: 'applications', label: 'Application' },
-  { id: 'cases', label: 'Cases', hint: 'your own table', disabled: true },
+  { id: 'cases', label: 'Cases', hint: 'search decisions' },
   { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
   { id: 'policy-editor', label: 'Credit Policy' },
 ];
@@ -114,6 +115,7 @@ export default function App() {
       {screen === 'policy-editor' && (
         <PolicyEditorScreen />
       )}
+      {screen === 'cases' && <CasesScreen />}
     </AppShell>
   );
 }

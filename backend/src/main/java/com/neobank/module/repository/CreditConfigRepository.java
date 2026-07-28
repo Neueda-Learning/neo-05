@@ -12,6 +12,6 @@ public interface CreditConfigRepository extends JpaRepository<CreditConfig, Inte
      * current = MAX(version).
      */
     Optional<CreditConfig> findTopByOrderByVersionDesc();
-  Optional<CreditConfig> findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(
+    Optional<CreditConfig> findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(
             Instant now);
 }

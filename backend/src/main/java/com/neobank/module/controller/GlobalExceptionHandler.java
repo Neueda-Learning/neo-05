@@ -1,5 +1,6 @@
 package com.neobank.module.controller;
 
+import com.neobank.module.service.ApplicantUnavailableException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -72,6 +73,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    /** Live applicant hydration failed; local case data remains available and the UI may retry. */
+    @ExceptionHandler(ApplicantUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleApplicantUnavailable(
+            ApplicantUnavailableException ex) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {

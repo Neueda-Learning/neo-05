@@ -216,6 +216,9 @@ public class CreditRecord {
     public java.math.BigDecimal getApr() {
         return apr;
     }
+    public boolean isSampled() {
+        return sampled;
+    }
 
     public String getCapReason() {
         return capReason;

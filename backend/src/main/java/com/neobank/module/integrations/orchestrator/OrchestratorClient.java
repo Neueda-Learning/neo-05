@@ -1,11 +1,14 @@
 package com.neobank.module.integrations.orchestrator;
 
 import com.neobank.module.model.Decision;
+import org.springframework.core.ParameterizedTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 /**
  * The outbound half of the contract: telling the orchestrator what this module decided.
@@ -17,6 +20,8 @@ import org.springframework.web.client.RestClient;
 public class OrchestratorClient {
 
     private static final Logger log = LoggerFactory.getLogger(OrchestratorClient.class);
+    private static final ParameterizedTypeReference<List<String>> APPLICATION_ID_LIST =
+            new ParameterizedTypeReference<>() { };
 
     private final RestClient http;
     private final String serviceId;
@@ -58,15 +63,38 @@ public class OrchestratorClient {
     }
 
     /**
-     * Fetch the full application from the orchestrator by ID — UC 03.
+     * Resolve an applicant name to application ids without persisting applicant data locally.
      *
-     * <p>A read-only proxy: the whole Application object is fetched live and never persisted.
-     * If the orchestrator is unreachable, an exception is thrown to be caught at the controller
-     * level.</p>
+     * <p>The orchestrator owns applicant data, so UC-01 name search starts with
+     * {@code GET /api/v1/applications?name=...}. A blank query cannot identify an applicant and
+     * therefore makes no remote call. Downstream failures degrade to no matches so the search
+     * endpoint can keep its {@code 200} contract.</p>
      */
+    public List<String> resolveApplicationIdsByName(String applicantName) {
+        if (applicantName == null || applicantName.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            List<String> applicationIds = http.get()
+                    .uri(applicationsUrl + "?name={name}", applicantName.strip())
+                    .retrieve()
+                    .body(APPLICATION_ID_LIST);
+            return applicationIds == null ? List.of() : List.copyOf(applicationIds);
+        } catch (Exception e) {
+            log.warn("Application-id lookup failed for applicant name: {}", e.toString());
+            return List.of();
+        }
+    }
+
+    /** Fetch the orchestrator-owned application live; callers decide how much to expose. */
     public Application fetchApplication(String applicationId) {
+        if (applicationId == null || applicationId.isBlank()) {
+            throw new IllegalArgumentException("applicationId is required");
+        }
+
         return http.get()
-                .uri(applicationsUrl + "/" + applicationId)
+                .uri(applicationsUrl + "/{applicationId}", applicationId)
                 .retrieve()
                 .body(Application.class);
     }
