@@ -224,9 +224,6 @@ public class CreditRecord {
         return capReason;
     }
 
-    public boolean isSampled() {
-        return sampled;
-    }
 
     public Instant getSubmittedAt() {
         return submittedAt;
