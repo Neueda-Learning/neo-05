@@ -58,6 +58,9 @@ only build and test. Three consequences worth holding on to:
 
 ## Rules
 
+- **Do not modify anything under `infra/` or `scripts/`.** These directories are owned by the
+  platform setup and are out of scope for this module's implementation. Do not edit, add, move,
+  rename, or delete files in either directory.
 - **Own schema only.** Read and write this service's MySQL schema, never another's.
   Integrate over REST.
 - **Liquibase owns the schema**, JPA runs `ddl-auto=validate`. Migrations are append-only:
@@ -72,6 +75,24 @@ only build and test. Three consequences worth holding on to:
   `-DskipITs=false` and Docker up.
 - **Everything configurable is an env var.** One image serves as any slot; anything
   hard-coded per-service breaks that.
+
+## Current credit-decisioning scope
+
+- **Use the three-table model from the supplied Module 5 material:** `credit_record`,
+  `credit_config`, and `override_log`. Keep `productTerms` inside the versioned
+  `credit_config` record; do not introduce a separate product-terms table unless the team
+  explicitly changes this decision later.
+- **The current product catalogue is `PREMIUM`, `PLATINUM`, and `STUDENT`.** These replace the
+  material's `STANDARD`, `REWARDS`, and `STUDENT` names respectively. Use the exact upstream
+  `productCode` values once confirmed; do not silently fall back to another product.
+- **Implement only the three agreed core rules for now:** minimum-income eligibility,
+  affordability/DTI referral, and the three-way credit-limit calculation with final-step
+  rounding.
+- The every-Xth clean-approval sampling rule is deferred. Do not implement sampling behavior
+  even though the supplied material and three-table starting model include sampling fields.
+- UC 09–11 candidate rules (residential stability, employment tenure, and residential-status
+  weighting) are deferred. Do not add their schema fields or engine branches until the team
+  explicitly brings them into scope.
 
 ## Map
 
