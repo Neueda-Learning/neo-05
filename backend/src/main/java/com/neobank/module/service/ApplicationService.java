@@ -1,5 +1,6 @@
 package com.neobank.module.service;
 
+import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
 import com.neobank.module.integrations.orchestrator.Application;
 import com.neobank.module.integrations.orchestrator.ApplicationRequest;
@@ -13,6 +14,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.NoSuchElementException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -338,5 +340,21 @@ public class ApplicationService {
         return creditRecords.findAllByOrderBySubmittedAtDescApplicationIdDesc().stream()
                 .map(DemoShowcaseView::of)
                 .toList();
+    }
+
+    /**
+     * Read a stored decision and its workings — UC 02.
+     * The dtiLimit comes from the pinned config version, not the record itself.
+     *
+     * @throws NoSuchElementException if no case exists for the given applicationId
+     */
+    @Transactional(readOnly = true)
+    public CaseView getCase(String applicationId) {
+        CreditRecord row = creditRecords.findById(applicationId)
+                .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+        CreditConfig config = creditConfigs.findById(row.getCreditConfigVersion())
+                .orElseThrow(() -> new IllegalStateException(
+                        "config version " + row.getCreditConfigVersion() + " not found"));
+        return CaseView.of(row, config.getDtiLimit());
     }
 }
