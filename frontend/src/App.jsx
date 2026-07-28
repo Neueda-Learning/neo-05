@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppShell, Button, SideBrand, SideNav, StatusPill } from './design-system';
 import RequestsScreen from './components/RequestsScreen.jsx';
+import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
 import { api } from './api.js';
 
 const POLL_MS = 2000;
@@ -18,7 +19,7 @@ const SCREENS = [
   { id: 'applications', label: 'Applications' },
   { id: 'cases', label: 'Cases', hint: 'your own table', disabled: true },
   { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
-  { id: 'settings', label: 'Settings', hint: 'reference data', disabled: true },
+  { id: 'policy-editor', label: 'Credit Policy' },
 ];
 
 /**
@@ -98,6 +99,9 @@ export default function App() {
     >
       {screen === 'applications' && (
         <RequestsScreen requests={requests} error={error} info={info} />
+      )}
+      {screen === 'policy-editor' && (
+        <PolicyEditorScreen />
       )}
     </AppShell>
   );

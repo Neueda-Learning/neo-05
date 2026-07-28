@@ -28,9 +28,23 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-// This UI only ever READS. Applications arrive from the orchestrator — the real one, or the
+/**
+ * Generic fetch wrapper for GET/POST/PUT/DELETE requests.
+ * Used by UC06 PolicyEditorScreen for credit policy management.
+ */
+export async function fetchApi(method, path, body = null) {
+  const options = { method };
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+  return request(path, options);
+}
+
+// This UI mostly READS. Applications arrive from the orchestrator — the real one, or the
 // sidecar playing it at http://localhost:9000 — never from a button in here. That is the
 // contract: your module is called, it does not call itself.
+//
+// UC06 added: credit policy management (read current, create new versions).
 export const api = {
   health: () => request('/health'),
   info: () => request('/info'),
