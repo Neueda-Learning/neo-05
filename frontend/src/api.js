@@ -36,4 +36,8 @@ export const api = {
   info: () => request('/info'),
   listApplications: () => request('/api/v1/applications'),
   getApplication: (id) => request(`/api/v1/applications/${id}`),
+  currentConfig: () => request('/api/v1/config/current'),
+  configHistory: () => request('/api/v1/config/history'),
+  createConfig: (body) =>
+    request('/api/v1/config', { method: 'POST', body: JSON.stringify(body) }),
 };

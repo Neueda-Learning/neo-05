@@ -21,6 +21,7 @@ export function DataTable({
   rowKey,
   maxRows = 10,
   total,
+  hideCount = false,
   onRowClick,
   selectedKey,
   expandedKey,
@@ -38,7 +39,7 @@ export function DataTable({
 
   const capped = matches > visible.length;
   const parts = [
-    `${matches} ${matches === 1 ? 'match' : 'matches'}`,
+    !hideCount && `${matches} ${matches === 1 ? 'match' : 'matches'}`,
     footnote,
     capped && `showing at most ${visible.length} — refine your search to narrow further`,
   ].filter(Boolean);
