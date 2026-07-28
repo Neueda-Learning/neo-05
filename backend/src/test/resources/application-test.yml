@@ -21,7 +21,7 @@ spring:
 service:
   id: neo05
   name: Credit Decisioning (test)
-  team: TabTab
+  team: Team 05 TabTab
   domain: credit
   orchestrator-url: http://localhost:9
   mocked-dependencies: id-verification-provider, sanctions-list

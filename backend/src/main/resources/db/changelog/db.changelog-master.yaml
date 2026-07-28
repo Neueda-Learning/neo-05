@@ -6,3 +6,9 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-demo-showcase.yaml
   - include:
       file: db/changelog/changes/002-create-credit-config.yaml
+  - include:
+      file: db/changelog/changes/003-create-credit-record.yaml
+  - include:
+      file: db/changelog/changes/004-create-override-log.yaml
+  - include:
+      file: db/changelog/changes/005-insert-initial-config.yaml
