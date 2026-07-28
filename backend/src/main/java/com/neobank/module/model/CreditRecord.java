@@ -244,6 +244,9 @@ public class CreditRecord {
         return capReason;
     }
 
+    public String getProductCode() {
+        return productCode;
+    }
 
     public Instant getSubmittedAt() {
         return submittedAt;

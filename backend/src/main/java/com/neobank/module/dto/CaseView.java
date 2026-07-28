@@ -26,7 +26,10 @@ public record CaseView(
             int requestedLimit,
             Integer grantedLimit,
             BigDecimal apr,
-            String capReason) {}
+            String capReason,
+            String decisionReason,
+            String productCode,
+            Integer minIncome) {}
 
     public record SamplingView(boolean sampled) {}
 
@@ -47,7 +50,34 @@ public record CaseView(
                         row.getRequestedLimit(),
                         row.getGrantedLimit(),
                         row.getApr(),
-                        row.getCapReason()),
+                        row.getCapReason(),
+                        row.getDecisionReason(),
+                        row.getProductCode(),
+                        null),
+                new SamplingView(row.isSampled()));
+    }
+
+    public static CaseView of(CreditRecord row, BigDecimal dtiLimit, Integer minIncome) {
+        return new CaseView(
+                row.getOutcome(),
+                row.getMachineOutcome(),
+                row.getReference(),
+                row.getCreditConfigVersion(),
+                new WorkingsView(
+                        row.getAnnualIncome(),
+                        row.getMonthlyIncome(),
+                        row.getMonthlyOutgoings(),
+                        row.getDti(),
+                        dtiLimit,
+                        row.getIncomeBasisLimit(),
+                        row.getProductMaxLimit(),
+                        row.getRequestedLimit(),
+                        row.getGrantedLimit(),
+                        row.getApr(),
+                        row.getCapReason(),
+                        row.getDecisionReason(),
+                        row.getProductCode(),
+                        minIncome),
                 new SamplingView(row.isSampled()));
     }
 }

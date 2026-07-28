@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@link GlobalExceptionHandler#handleNotFound}.</p>
  */
 @RestController
-@RequestMapping("/cases")
+@RequestMapping({"/cases", "/api/v1/cases"})
 public class CasesController {
 
     private final ApplicationService applications;
