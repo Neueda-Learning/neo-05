@@ -50,4 +50,6 @@ export const api = {
   info: () => request('/info'),
   listApplications: () => request('/api/v1/applications'),
   getApplication: (id) => request(`/api/v1/applications/${id}`),
+  listCreditPolicies: () => request('/api/v1/credit-policy/versions'),
+  getCreditPolicyByVersion: (version) => request(`/api/v1/credit-policy/${version}`),
 };

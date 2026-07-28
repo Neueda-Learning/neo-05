@@ -5,10 +5,16 @@ import com.neobank.module.dto.CreditPolicyView;
 import com.neobank.module.dto.ProductTermDTO;
 import com.neobank.module.model.CreditConfig;
 import com.neobank.module.repository.CreditConfigRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -34,6 +40,18 @@ public class CreditPolicyService {
             "CREDIT_CARD_STUDENT"
     );
 
+        private static final List<String> CATALOGUE_PRODUCT_ORDER = List.of(
+            "CREDIT_CARD_REWARDS",
+            "CREDIT_CARD_LOW_RATE",
+            "CREDIT_CARD_STUDENT"
+        );
+
+        private static final Map<String, String> LEGACY_PRODUCT_CODE_MAP = Map.of(
+            "PLATINUM", "CREDIT_CARD_REWARDS",
+            "PREMIUM", "CREDIT_CARD_LOW_RATE",
+            "STUDENT", "CREDIT_CARD_STUDENT"
+        );
+
     private final CreditConfigRepository policies;
     private final ObjectMapper mapper;
 
@@ -50,8 +68,27 @@ public class CreditPolicyService {
     public CreditPolicyView getCurrentPolicy() {
         CreditConfig current = policies.findTopByOrderByVersionDesc()
                 .orElseThrow(() -> new NoSuchElementException("no credit policy version exists"));
-        List<ProductTermDTO> terms = parseProductTerms(current.getProductTerms());
-        return CreditPolicyView.of(current, terms);
+        return toView(current);
+    }
+
+    /**
+     * Get one specific policy version.
+     */
+    @Transactional(readOnly = true)
+    public CreditPolicyView getPolicyVersion(int version) {
+        CreditConfig config = policies.findById(version)
+                .orElseThrow(() -> new NoSuchElementException("credit policy version not found: " + version));
+        return toView(config);
+    }
+
+    /**
+     * Get all policy versions, newest first.
+     */
+    @Transactional(readOnly = true)
+    public List<CreditPolicyView> listPolicies() {
+        return policies.findAllByOrderByVersionDesc().stream()
+                .map(this::toView)
+                .toList();
     }
 
     /**
@@ -134,7 +171,7 @@ public class CreditPolicyService {
     private String serializeProductTerms(List<ProductTermDTO> terms) {
         try {
             return mapper.writeValueAsString(terms);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize product terms", e);
         }
     }
@@ -146,8 +183,70 @@ public class CreditPolicyService {
         try {
             return mapper.readValue(json, new TypeReference<List<ProductTermDTO>>() {
             });
-        } catch (Exception e) {
+        } catch (IOException ignored) {
+            return parseLegacyProductTerms(json);
+        }
+    }
+
+    private CreditPolicyView toView(CreditConfig config) {
+        List<ProductTermDTO> terms = parseProductTerms(config.getProductTerms());
+        return CreditPolicyView.of(config, terms);
+    }
+
+    /**
+     * Supports legacy seeded rows where product_terms is an object keyed by product family.
+     */
+    private List<ProductTermDTO> parseLegacyProductTerms(String json) {
+        try {
+            Map<String, LegacyProductTerm> legacy = mapper.readValue(
+                    json,
+                    new TypeReference<LinkedHashMap<String, LegacyProductTerm>>() {
+                    }
+            );
+
+            Map<String, ProductTermDTO> normalized = new HashMap<>();
+            for (Map.Entry<String, LegacyProductTerm> entry : legacy.entrySet()) {
+                String normalizedCode = normalizeProductCode(entry.getKey());
+                LegacyProductTerm value = entry.getValue();
+
+                if (value == null) {
+                    throw new IllegalArgumentException("missing terms for product: " + entry.getKey());
+                }
+
+                normalized.put(normalizedCode, new ProductTermDTO(
+                        normalizedCode,
+                        value.minIncome(),
+                        value.maxLimit(),
+                        value.apr()
+                ));
+            }
+
+            List<ProductTermDTO> ordered = new ArrayList<>();
+            for (String code : CATALOGUE_PRODUCT_ORDER) {
+                if (normalized.containsKey(code)) {
+                    ordered.add(normalized.get(code));
+                }
+            }
+
+            for (Map.Entry<String, ProductTermDTO> entry : normalized.entrySet()) {
+                if (!CATALOGUE_PRODUCTS.contains(entry.getKey())) {
+                    ordered.add(entry.getValue());
+                }
+            }
+
+            return ordered;
+        } catch (IOException | RuntimeException e) {
             throw new RuntimeException("Failed to parse product terms", e);
         }
+    }
+
+    private String normalizeProductCode(String code) {
+        if (code == null) {
+            return null;
+        }
+        return LEGACY_PRODUCT_CODE_MAP.getOrDefault(code, code);
+    }
+
+    private record LegacyProductTerm(Integer minIncome, Integer maxLimit, BigDecimal apr) {
     }
 }

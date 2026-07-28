@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '../design-system';
 import { fetchApi } from '../api.js';
 import '../styles.css';
 
@@ -13,7 +14,7 @@ import '../styles.css';
  * - 0 < dtiLimit < 1
  * - sampleEvery ≥ 1
  */
-export default function PolicyEditorScreen() {
+export default function PolicyEditorScreen({ selectedVersion, onBackToList }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -37,8 +38,11 @@ export default function PolicyEditorScreen() {
       try {
         setLoading(true);
         setError(null);
-        const current = await fetchApi('GET', '/api/v1/credit-policy');
-        setPolicy(current);
+        const endpoint = selectedVersion
+          ? `/api/v1/credit-policy/${selectedVersion}`
+          : '/api/v1/credit-policy';
+        const response = await fetchApi('GET', endpoint);
+        setPolicy(response);
       } catch (err) {
         setError(err.message || 'Failed to load policy');
       } finally {
@@ -46,7 +50,7 @@ export default function PolicyEditorScreen() {
       }
     };
     loadPolicy();
-  }, []);
+  }, [selectedVersion]);
 
   // Update policy config field
   const updatePolicyField = (field, value) => {
@@ -151,6 +155,13 @@ export default function PolicyEditorScreen() {
 
   return (
     <div className="editor-container">
+      <div className="policy-header-actions">
+        {onBackToList && (
+          <Button variant="ghost" size="sm" onClick={onBackToList}>
+            Back to policy list
+          </Button>
+        )}
+      </div>
       <h1>Credit Policy Editor</h1>
       <p className="subtitle">UC06: Risk Manager — Manage credit policy without deploy</p>
 

@@ -13,4 +13,9 @@ public interface CreditConfigRepository extends JpaRepository<CreditConfig, Inte
      * current = MAX(version).
      */
     Optional<CreditConfig> findTopByOrderByVersionDesc();
+
+    /**
+     * Get all policy versions, newest first.
+     */
+    java.util.List<CreditConfig> findAllByOrderByVersionDesc();
 }
