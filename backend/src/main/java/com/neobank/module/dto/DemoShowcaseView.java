@@ -1,6 +1,6 @@
 package com.neobank.module.dto;
 
-import com.neobank.module.model.DemoShowcase;
+import com.neobank.module.model.CreditRecord;
 import java.time.Instant;
 
 /**
@@ -19,7 +19,7 @@ public record DemoShowcaseView(
         String status,
         Instant createdAt) {
 
-    public static DemoShowcaseView of(DemoShowcase row) {
-        return new DemoShowcaseView(row.getApplicationId(), row.getStatus(), row.getCreatedAt());
+    public static DemoShowcaseView of(CreditRecord row) {
+        return new DemoShowcaseView(row.getApplicationId(), row.apiStatus(), row.getSubmittedAt());
     }
 }
