@@ -106,6 +106,12 @@ databaseChangeLog:
                   name: decision_reason
                   type: VARCHAR(512)
               - column:
+                  name: min_income_result
+                  type: BOOLEAN
+              - column:
+                  name: dti_result
+                  type: VARCHAR(16)
+              - column:
                   name: submitted_at
                   type: TIMESTAMP
                   constraints:

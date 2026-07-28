@@ -21,6 +21,30 @@ databaseChangeLog:
                     nullable: false
 
               - column:
+                  name: product_type
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: min_income
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: max_limit
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: apr
+                  type: DECIMAL(5,2)
+                  constraints:
+                    nullable: false
+
+              - column:
                   name: dti_limit
                   type: DECIMAL(5,2)
                   constraints:
