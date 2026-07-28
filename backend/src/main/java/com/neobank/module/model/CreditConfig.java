@@ -1,6 +1,5 @@
 package com.neobank.module.model;
 
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import jakarta.persistence.Column;
@@ -57,7 +56,6 @@ public class CreditConfig {
     @Column(name = "effective_from", nullable = false, updatable = false)
     private Instant effectiveFrom;
 
-
     protected CreditConfig() {
         // JPA
     }
@@ -76,6 +74,17 @@ public class CreditConfig {
         config.sampleEvery = sampleEvery;
         config.effectiveFrom = effectiveFrom;
         return config;
+    }
+
+    public CreditConfig withProductTermColumns(String productCode,
+                                               Integer minIncome,
+                                               Integer maxLimit,
+                                               BigDecimal apr) {
+        this.productCode = productCode;
+        this.minIncome = minIncome;
+        this.maxLimit = maxLimit;
+        this.apr = apr == null ? null : apr.doubleValue();
+        return this;
     }
 
     @PrePersist

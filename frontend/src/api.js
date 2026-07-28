@@ -50,6 +50,13 @@ export const api = {
   info: () => request('/info'),
   listApplications: () => request('/api/v1/applications'),
   getApplication: (id) => request(`/api/v1/applications/${id}`),
+  listCreditPolicies: () => request('/api/v1/credit-policy/versions'),
+  getCreditPolicyByVersion: (version, policyCode) =>
+    request(
+      `/api/v1/credit-policy/${version}${
+        policyCode ? `?policyCode=${encodeURIComponent(policyCode)}` : ''
+      }`
+    ),
   getCase: (id) => request(`/api/v1/cases/${id}`),
   getApplicant: (id) => request(`/api/v1/cases/${id}/applicant`),
   searchCases: (query, limit = 10) =>
