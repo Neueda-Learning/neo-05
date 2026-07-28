@@ -20,7 +20,7 @@ import jakarta.validation.constraints.NotBlank;
 public record ApplicationRequest(
         @NotBlank String applicationId,
         String correlationId,
-        String command,
+        @NotBlank String command,
         Application application) {
 
     /**

@@ -65,9 +65,7 @@ public class ApplicationController {
      * {@code ApplicationControllerTest} pins all four fields.
      *
      * <p><b>{@code LinkedHashMap}, not {@code Map.of}.</b> {@code Map.of} throws on a null value,
-     * and {@code command} is not a validated field — an envelope without one is legal and would
-     * turn into a {@code 500}. This keeps field order for readability and serialises an absent
-     * command as JSON {@code null}, which is what the record it replaced did.</p>
+    * and this keeps field order stable for readability.</p>
      */
     private Map<String, Object> ack(ApplicationRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
