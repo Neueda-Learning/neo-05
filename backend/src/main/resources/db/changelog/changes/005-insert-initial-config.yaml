@@ -1,36 +1,72 @@
 databaseChangeLog:
   - changeSet:
-	  id: 005-insert-initial-credit-config
-	  author: neo-05
-	  preConditions:
-		onFail: MARK_RAN
-		onError: HALT
-		- sqlCheck:
-			expectedResult: "0"
-			sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
-	  changes:
-		- insert:
-			tableName: credit_config
-			columns:
-			  - column:
-				  name: version
-				  valueNumeric: 1
-			  - column:
-				  name: product_terms
-				  value: '{"STANDARD":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"REWARDS":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
-			  - column:
-				  name: dti_limit
-				  valueNumeric: 0.45
-			  - column:
-				  name: rounding_step
-				  valueNumeric: 100
-			  - column:
-				  name: sample_every
-				  valueNumeric: 7
-			  - column:
-				  name: effective_from
-				  valueDate: 2026-07-28T00:00:00
-	  rollback:
-		- delete:
-			tableName: credit_config
-			where: version = 1
+			id: 005-insert-credit-config-v1
+			author: neo-05
+			preConditions:
+				onFail: MARK_RAN
+				onError: HALT
+				- sqlCheck:
+						expectedResult: "0"
+						sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
+			changes:
+				- insert:
+						tableName: credit_config
+						columns:
+							- column:
+									name: version
+									valueNumeric: 1
+							- column:
+									name: product_terms
+									value: '{"PREMIUM":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"PLATINUM":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
+							- column:
+									name: dti_limit
+									valueNumeric: 0.45
+							- column:
+									name: rounding_step
+									valueNumeric: 100
+							- column:
+									name: sample_every
+									valueNumeric: 7
+							- column:
+									name: effective_from
+									valueDate: 2026-07-28T00:00:00
+			rollback:
+				- delete:
+						tableName: credit_config
+						where: version = 1
+
+  - changeSet:
+			id: 005-insert-credit-config-v2
+			author: neo-05
+			preConditions:
+				onFail: MARK_RAN
+				onError: HALT
+				- sqlCheck:
+						expectedResult: "0"
+						sql: SELECT COUNT(*) FROM credit_config WHERE version = 2
+			changes:
+				- insert:
+						tableName: credit_config
+						columns:
+							- column:
+									name: version
+									valueNumeric: 2
+							- column:
+									name: product_terms
+									value: '{"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},"PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},"STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}'
+							- column:
+									name: dti_limit
+									valueNumeric: 0.42
+							- column:
+									name: rounding_step
+									valueNumeric: 100
+							- column:
+									name: sample_every
+									valueNumeric: 5
+							- column:
+									name: effective_from
+									valueDate: 2026-08-01T00:00:00
+			rollback:
+				- delete:
+						tableName: credit_config
+						where: version = 2
