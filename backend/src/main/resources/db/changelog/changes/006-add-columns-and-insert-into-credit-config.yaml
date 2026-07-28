@@ -1,0 +1,299 @@
+databaseChangeLog:
+  - changeSet:
+    id: 006-add-config-id-primary-key
+    author: neo-05
+    changes:
+    - addColumn:
+      tableName: credit_config
+      columns:
+        - column:
+          name: config_id
+          type: INT
+          autoIncrement: true
+          constraints:
+          nullable: false
+
+  - changeSet:
+    id: 006-drop-version-primary-key
+    author: neo-05
+    changes:
+    - dropPrimaryKey:
+      tableName: credit_config
+      constraintName: PRIMARY
+
+  - changeSet:
+    id: 006-add-config-id-as-primary-key
+    author: neo-05
+    changes:
+    - addPrimaryKey:
+      tableName: credit_config
+      columnNames: config_id
+      constraintName: PK_credit_config
+
+  - changeSet:
+    id: 006-add-product-columns
+    author: neo-05
+    changes:
+    - addColumn:
+      tableName: credit_config
+      columns:
+        - column:
+          name: product_code
+          type: VARCHAR(32)
+          constraints:
+          nullable: false
+        - column:
+          name: min_income
+          type: INT
+          constraints:
+          nullable: false
+        - column:
+          name: max_limit
+          type: INT
+          constraints:
+          nullable: false
+        - column:
+          name: apr
+          type: DECIMAL(5,2)
+          constraints:
+          nullable: false
+
+  - changeSet:
+    id: 006-insert-v1-premium
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 1
+        - column:
+          name: product_code
+          value: PREMIUM
+        - column:
+          name: min_income
+          valueNumeric: 18000
+        - column:
+          name: max_limit
+          valueNumeric: 5000
+        - column:
+          name: apr
+          valueNumeric: 12.9
+        - column:
+          name: dti_limit
+          valueNumeric: 0.45
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 7
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"PLATINUM":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-07-28T00:00:00
+
+  - changeSet:
+    id: 006-insert-v1-platinum
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 1
+        - column:
+          name: product_code
+          value: PLATINUM
+        - column:
+          name: min_income
+          valueNumeric: 24000
+        - column:
+          name: max_limit
+          valueNumeric: 8000
+        - column:
+          name: apr
+          valueNumeric: 14.9
+        - column:
+          name: dti_limit
+          valueNumeric: 0.45
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 7
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"PLATINUM":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-07-28T00:00:00
+
+  - changeSet:
+    id: 006-insert-v1-student
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 1
+        - column:
+          name: product_code
+          value: STUDENT
+        - column:
+          name: min_income
+          valueNumeric: 12000
+        - column:
+          name: max_limit
+          valueNumeric: 1500
+        - column:
+          name: apr
+          valueNumeric: 9.9
+        - column:
+          name: dti_limit
+          valueNumeric: 0.45
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 7
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"PLATINUM":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-07-28T00:00:00
+
+  - changeSet:
+    id: 006-insert-v2-premium
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 2
+        - column:
+          name: product_code
+          value: PREMIUM
+        - column:
+          name: min_income
+          valueNumeric: 20000
+        - column:
+          name: max_limit
+          valueNumeric: 5500
+        - column:
+          name: apr
+          valueNumeric: 13.4
+        - column:
+          name: dti_limit
+          valueNumeric: 0.42
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 5
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},"PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},"STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-08-01T00:00:00
+
+  - changeSet:
+    id: 006-insert-v2-platinum
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 2
+        - column:
+          name: product_code
+          value: PLATINUM
+        - column:
+          name: min_income
+          valueNumeric: 26000
+        - column:
+          name: max_limit
+          valueNumeric: 8500
+        - column:
+          name: apr
+          valueNumeric: 15.2
+        - column:
+          name: dti_limit
+          valueNumeric: 0.42
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 5
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},"PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},"STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-08-01T00:00:00
+
+  - changeSet:
+    id: 006-insert-v2-student
+    author: neo-05
+    preConditions:
+    - onFail: MARK_RAN
+    changes:
+    - insert:
+      tableName: credit_config
+      columns:
+        - column:
+          name: version
+          valueNumeric: 2
+        - column:
+          name: product_code
+          value: STUDENT
+        - column:
+          name: min_income
+          valueNumeric: 12000
+        - column:
+          name: max_limit
+          valueNumeric: 1800
+        - column:
+          name: apr
+          valueNumeric: 10.2
+        - column:
+          name: dti_limit
+          valueNumeric: 0.42
+        - column:
+          name: rounding_step
+          valueNumeric: 100
+        - column:
+          name: sample_every
+          valueNumeric: 5
+        - column:
+          name: product_terms
+          value: '{"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},"PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},"STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}'
+        - column:
+          name: effective_from
+          valueDate: 2026-08-01T00:00:00

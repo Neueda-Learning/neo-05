@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-result-columns-to-credit-record
+      author: neo-05
+      changes:
+        - addColumn:
+            tableName: credit_record
+            columns:
+              - column:
+                  name: min_income_result
+                  type: BOOLEAN
+                  constraints:
+                    nullable: true
+              - column:
+                  name: dti_result
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: true
