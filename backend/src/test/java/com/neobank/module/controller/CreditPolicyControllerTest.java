@@ -120,7 +120,7 @@ class CreditPolicyControllerTest {
                 Instant.now()
               );
 
-              when(policies.getPolicyVersion(1)).thenReturn(v1);
+              when(policies.getPolicyVersion(1, null)).thenReturn(v1);
 
               mvc.perform(get("/api/v1/credit-policy/1"))
                 .andExpect(status().isOk())

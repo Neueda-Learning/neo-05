@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
+  Button,
   ChipGroup,
   DataTable,
   EmptyState,
@@ -26,7 +27,7 @@ const FILTERS = ['All', ...STATUSES];
  * screen's rules, a toolbar that narrows, a capped table. The 10-row cap and its footnote come from
  * DataTable — no screen re-implements them.
  */
-export default function RequestsScreen({ requests, error, info, onRowClick }) {
+export default function RequestsScreen({ requests, error, info, onRowClick, onOpenPolicyEditor }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
 
@@ -114,6 +115,18 @@ export default function RequestsScreen({ requests, error, info, onRowClick }) {
           aria-label="Search applications"
         />
         <ChipGroup options={FILTERS} value={filter} onChange={setFilter} counts={counts} />
+        {onOpenPolicyEditor && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onOpenPolicyEditor}
+            style={{ marginLeft: 'auto' }}
+            title="Open the credit policy editor prefilled with the current configuration"
+          >
+            Open Credit Policy Editor
+          </Button>
+        )}
       </Toolbar>
 
       <DataTable

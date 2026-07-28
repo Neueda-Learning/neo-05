@@ -133,6 +133,7 @@ public class ApplicationService {
             if (row == null || !row.isInProgress()) {
                 return;
             }
+                row.setApplicantFullname(extractApplicantFullName(request.application()));
                 log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
                 CreditConfig activeConfig = creditConfigs
                     .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
@@ -147,6 +148,7 @@ public class ApplicationService {
                 dti = dti == null ? null : dti.min(BigDecimal.valueOf(99.99));
                 row.applyScoring(
                     activeConfig.getVersion(),
+                    activeConfig.getConfigId(),
                     terms.productCode(),
                     input.annualIncome(),
                     input.monthlyIncome(),
@@ -181,6 +183,7 @@ public class ApplicationService {
 
                 row.applyScoring(
                     activeConfig.getVersion(),
+                    activeConfig.getConfigId(),
                     terms.productCode(),
                     input.annualIncome(),
                     input.monthlyIncome(),
@@ -283,6 +286,18 @@ public class ApplicationService {
         return value == null ? 0 : value;
     }
 
+    private String extractApplicantFullName(Application application) {
+        if (application == null || application.applicant() == null) {
+            return null;
+        }
+        String fullName = application.applicant().fullName();
+        if (fullName == null) {
+            return null;
+        }
+        String trimmed = fullName.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private record ProductTerms(String productCode, int minIncome, int maxLimit, BigDecimal apr) {
     }
 
@@ -354,11 +369,23 @@ public class ApplicationService {
     public CaseView getCase(String applicationId) {
         CreditRecord row = creditRecords.findById(applicationId)
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
-        CreditConfig config = creditConfigs.findById(row.getCreditConfigVersion())
-                .orElseThrow(() -> new IllegalStateException(
-                        "config version " + row.getCreditConfigVersion() + " not found"));
+        CreditConfig config = resolveConfigForCase(row);
         return CaseView.of(row, config.getDtiLimit());
     }
+
+        private CreditConfig resolveConfigForCase(CreditRecord row) {
+        Long configId = row.getCreditConfigId();
+        if (configId != null) {
+            return creditConfigs.findById(configId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "config id " + configId + " not found"));
+        }
+
+        return creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(
+                row.getCreditConfigVersion())
+            .orElseThrow(() -> new IllegalStateException(
+                "config version " + row.getCreditConfigVersion() + " not found"));
+        }
 
     /**
      * Fetch and return applicant details from the orchestrator — UC 03.

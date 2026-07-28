@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,29 +41,37 @@ public class CreditPolicyService {
             "CREDIT_CARD_STUDENT"
     );
 
-        private static final List<String> CATALOGUE_PRODUCT_ORDER = List.of(
+    private static final List<String> CATALOGUE_PRODUCT_ORDER = List.of(
             "CREDIT_CARD_REWARDS",
             "CREDIT_CARD_LOW_RATE",
             "CREDIT_CARD_STUDENT"
-        );
+    );
 
-        private static final Map<String, String> LEGACY_PRODUCT_CODE_MAP = Map.of(
+    private static final Map<String, String> LEGACY_PRODUCT_CODE_MAP = Map.of(
             "PLATINUM", "CREDIT_CARD_REWARDS",
             "PREMIUM", "CREDIT_CARD_LOW_RATE",
             "STUDENT", "CREDIT_CARD_STUDENT"
+    );
+
+    private static final List<ProductTermDTO> PLATINUM_PROFILE_TERMS = List.of(
+            new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9")),
+            new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 5000, new BigDecimal("12.9")),
+            new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"))
+    );
+
+    private static final List<ProductTermDTO> PREMIUM_PROFILE_TERMS = List.of(
+            new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
+            new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
+            new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
+    );
+
+        private static final List<ProductTermDTO> STUDENT_PROFILE_TERMS = List.of(
+            new ProductTermDTO("CREDIT_CARD_REWARDS", 20000, 4500, new BigDecimal("16.9")),
+            new ProductTermDTO("CREDIT_CARD_LOW_RATE", 15000, 2500, new BigDecimal("14.9")),
+            new ProductTermDTO("CREDIT_CARD_STUDENT", 10000, 1200, new BigDecimal("9.9"))
         );
 
-            private static final List<ProductTermDTO> PLATINUM_PROFILE_TERMS = List.of(
-                new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9")),
-                new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 5000, new BigDecimal("12.9")),
-                new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"))
-            );
-
-            private static final List<ProductTermDTO> PREMIUM_PROFILE_TERMS = List.of(
-                new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
-                new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
-                new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
-            );
+            private static final List<String> POLICY_STREAMS = List.of("PLATINUM", "PREMIUM", "STUDENT");
 
     private final CreditConfigRepository policies;
     private final ObjectMapper mapper;
@@ -78,9 +87,14 @@ public class CreditPolicyService {
      */
     @Transactional(readOnly = true)
     public CreditPolicyView getCurrentPolicy() {
-        CreditConfig current = policies.findTopByOrderByVersionDesc()
+        CreditConfig current = policies.findFirstByOrderByVersionDescConfigIdDesc()
+                .or(() -> policies.findTopByOrderByVersionDesc())
                 .orElseThrow(() -> new NoSuchElementException("no credit policy version exists"));
-        return toView(current);
+        List<CreditConfig> rows = policies.findAllByVersionOrderByConfigIdDesc(current.getVersion());
+        if (rows.isEmpty()) {
+            rows = List.of(current);
+        }
+        return toView(current, rows);
     }
 
     /**
@@ -88,9 +102,28 @@ public class CreditPolicyService {
      */
     @Transactional(readOnly = true)
     public CreditPolicyView getPolicyVersion(int version) {
-        CreditConfig config = policies.findById(version)
-                .orElseThrow(() -> new NoSuchElementException("credit policy version not found: " + version));
-        return toView(config);
+        List<CreditConfig> rows = policies.findAllByVersionOrderByConfigIdDesc(version);
+        if (rows.isEmpty()) {
+            throw new NoSuchElementException("credit policy version not found: " + version);
+        }
+        return toView(rows.getFirst(), rows);
+    }
+
+    /**
+     * Get one specific policy stream version.
+     */
+    @Transactional(readOnly = true)
+    public CreditPolicyView getPolicyVersion(int version, String policyCode) {
+        String stream = normalizePolicyProfile(policyCode);
+        if (!stream.isBlank()) {
+            List<CreditConfig> rows = policies.findAllByVersionAndProductTermsOrderByConfigIdDesc(version, stream);
+            if (!rows.isEmpty()) {
+                return toView(rows.getFirst(), rows);
+            }
+            throw new NoSuchElementException(
+                    "credit policy version not found for " + stream + ": " + version);
+        }
+        return getPolicyVersion(version);
     }
 
     /**
@@ -98,9 +131,57 @@ public class CreditPolicyService {
      */
     @Transactional(readOnly = true)
     public List<CreditPolicyView> listPolicies() {
-        return policies.findAllByOrderByVersionDesc().stream()
-                .map(this::toView)
-                .toList();
+        List<CreditPolicyView> views = new ArrayList<>();
+        for (String stream : POLICY_STREAMS) {
+            CreditConfig latest = policies.findFirstByProductTermsOrderByVersionDescConfigIdDesc(stream)
+                    .orElse(null);
+            if (latest == null) {
+                continue;
+            }
+
+            List<CreditConfig> streamRows = policies.findAllByVersionAndProductTermsOrderByConfigIdDesc(
+                    latest.getVersion(),
+                    stream);
+            if (streamRows.isEmpty()) {
+                streamRows = List.of(latest);
+            }
+            views.add(toView(streamRows.getFirst(), streamRows));
+        }
+
+        if (!views.isEmpty()) {
+            return views;
+        }
+
+        for (Integer version : policies.findDistinctVersionsDesc()) {
+            List<CreditConfig> versionRows = policies.findAllByVersionOrderByConfigIdDesc(version);
+            if (versionRows.isEmpty()) {
+                continue;
+            }
+            views.add(toView(versionRows.getFirst(), versionRows));
+        }
+        return views;
+    }
+
+    @Transactional(readOnly = true)
+    public List<CreditPolicyView> listPolicies(String policyCode) {
+        String stream = normalizePolicyProfile(policyCode);
+        if (stream.isBlank()) {
+            return listPolicies();
+        }
+
+        List<CreditPolicyView> views = new ArrayList<>();
+        Map<Integer, List<CreditConfig>> rowsByVersion = new LinkedHashMap<>();
+        for (CreditConfig row : policies.findAllByProductTermsOrderByVersionDescConfigIdDesc(stream)) {
+            rowsByVersion.computeIfAbsent(row.getVersion(), ignored -> new ArrayList<>()).add(row);
+        }
+
+        for (List<CreditConfig> versionRows : rowsByVersion.values()) {
+            if (versionRows.isEmpty()) {
+                continue;
+            }
+            views.add(toView(versionRows.getFirst(), versionRows));
+        }
+        return views;
     }
 
     /**
@@ -115,33 +196,51 @@ public class CreditPolicyService {
     public CreditPolicyView createVersion(CreditPolicyRequest request) {
         validate(request);
 
-        int nextVersion = policies.findTopByOrderByVersionDesc()
-                .map(existing -> existing.getVersion() + 1)
-                .orElse(1);
-
         String serializedTerms = serializeProductTerms(request.productTerms());
+        String persistedPolicyCode = normalizePolicyProfile(request.policyCode());
+        if (persistedPolicyCode.isBlank()) {
+            throw new IllegalArgumentException("policy_code required");
+        }
 
-        CreditConfig version = CreditConfig.of(
+        int nextVersion = policies.findFirstByProductTermsOrderByVersionDescConfigIdDesc(persistedPolicyCode)
+            .map(existing -> existing.getVersion() + 1)
+            .orElse(1);
+
+        String productTermsForStorage = persistedPolicyCode.isBlank() ? serializedTerms : persistedPolicyCode;
+
+        List<CreditConfig> rows = request.productTerms().stream()
+            .map(term -> CreditConfig.of(
                 nextVersion,
-                serializedTerms,
+            productTermsForStorage,
                 request.dtiLimit(),
                 BigDecimal.valueOf(request.roundingStep()),
                 request.sampleEvery(),
                 null // will be set by @PrePersist
-        );
+            ).withProductTermColumns(
+                term.productCode(),
+                term.minIncome(),
+                term.maxLimit(),
+                term.apr()))
+            .toList();
 
-        CreditConfig saved = policies.save(version);
-        return CreditPolicyView.of(saved, request.productTerms());
+        List<CreditConfig> savedRows = policies.saveAll(rows);
+        CreditConfig latest = savedRows.stream()
+            .max(java.util.Comparator.comparing(CreditConfig::getConfigId))
+            .orElseThrow();
+        return toView(latest, savedRows);
     }
 
     /**
      * Validate the policy request against all constraints.
      */
     private void validate(CreditPolicyRequest request) {
-        // Validate all three catalogue products present
-        Set<String> providedProducts = request.productTerms().stream()
-                .map(ProductTermDTO::productCode)
-                .collect(java.util.stream.Collectors.toSet());
+        Map<String, Long> countsByProduct = request.productTerms().stream()
+                .collect(Collectors.groupingBy(
+                        term -> normalizeProductCode(term.productCode()),
+                        LinkedHashMap::new,
+                        Collectors.counting()));
+
+        Set<String> providedProducts = countsByProduct.keySet();
 
         Set<String> missing = new java.util.HashSet<>(CATALOGUE_PRODUCTS);
         missing.removeAll(providedProducts);
@@ -149,8 +248,18 @@ public class CreditPolicyService {
             throw new IllegalArgumentException("missing products: " + missing);
         }
 
-        if (providedProducts.size() > CATALOGUE_PRODUCTS.size()) {
-            throw new IllegalArgumentException("unknown products in request");
+        Set<String> unknown = new java.util.HashSet<>(providedProducts);
+        unknown.removeAll(CATALOGUE_PRODUCTS);
+        if (!unknown.isEmpty()) {
+            throw new IllegalArgumentException("unknown products in request: " + unknown);
+        }
+
+        List<String> duplicates = countsByProduct.entrySet().stream()
+                .filter(entry -> entry.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .toList();
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException("duplicate products in request: " + duplicates);
         }
 
         // Individual validations (also enforced by @Valid on DTOs)
@@ -200,9 +309,55 @@ public class CreditPolicyService {
         }
     }
 
-    private CreditPolicyView toView(CreditConfig config) {
-        List<ProductTermDTO> terms = parseProductTerms(config.getProductTerms());
+    private CreditPolicyView toView(CreditConfig config, List<CreditConfig> rowsForVersion) {
+        List<ProductTermDTO> terms = parseProductTermsFromRows(rowsForVersion);
+        if (terms.isEmpty()) {
+            terms = parseProductTerms(config.getProductTerms());
+        }
         return CreditPolicyView.of(config, terms);
+    }
+
+    private List<ProductTermDTO> parseProductTermsFromRows(List<CreditConfig> rowsForVersion) {
+        if (rowsForVersion == null || rowsForVersion.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, ProductTermDTO> byCode = new LinkedHashMap<>();
+        for (CreditConfig row : rowsForVersion) {
+            String code = normalizeProductCode(row.getProductCode());
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            if (row.getMinIncome() == null || row.getMaxLimit() == null || row.getApr() == null) {
+                continue;
+            }
+
+            byCode.put(code, new ProductTermDTO(
+                    code,
+                    row.getMinIncome(),
+                    row.getMaxLimit(),
+                    BigDecimal.valueOf(row.getApr())
+            ));
+        }
+
+        if (byCode.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProductTermDTO> ordered = new ArrayList<>();
+        for (String code : CATALOGUE_PRODUCT_ORDER) {
+            ProductTermDTO term = byCode.get(code);
+            if (term != null) {
+                ordered.add(term);
+            }
+        }
+
+        for (Map.Entry<String, ProductTermDTO> entry : byCode.entrySet()) {
+            if (!CATALOGUE_PRODUCTS.contains(entry.getKey())) {
+                ordered.add(entry.getValue());
+            }
+        }
+        return ordered;
     }
 
     /**
@@ -258,9 +413,10 @@ public class CreditPolicyService {
         String normalized = normalizePolicyProfile(rawProductTerms);
 
         return switch (normalized) {
-            case "PLATINUM" -> PLATINUM_PROFILE_TERMS;
-            case "PREMIUM" -> PREMIUM_PROFILE_TERMS;
-            default -> throw new RuntimeException("Failed to parse product terms");
+            case "PLATINUM", "CREDIT_CARD_REWARDS" -> PLATINUM_PROFILE_TERMS;
+            case "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> PREMIUM_PROFILE_TERMS;
+            case "STUDENT", "CREDIT_CARD_STUDENT" -> STUDENT_PROFILE_TERMS;
+            default -> PREMIUM_PROFILE_TERMS;
         };
     }
 

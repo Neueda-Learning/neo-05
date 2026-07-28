@@ -40,5 +40,8 @@ public record CreditPolicyRequest(
         @JsonProperty("product_terms")
         @NotNull(message = "product_terms required")
         @Valid
-        List<ProductTermDTO> productTerms) {
+        List<ProductTermDTO> productTerms,
+
+        @JsonProperty("policy_code")
+        String policyCode) {
 }

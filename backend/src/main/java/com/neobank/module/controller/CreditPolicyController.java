@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.neobank.module.dto.CreditPolicyRequest;
@@ -46,8 +47,9 @@ public class CreditPolicyController {
      * List all policy versions, newest first.
      */
     @GetMapping("/versions")
-    public ResponseEntity<List<CreditPolicyView>> listPolicies() {
-        List<CreditPolicyView> versions = policies.listPolicies();
+    public ResponseEntity<List<CreditPolicyView>> listPolicies(
+            @RequestParam(name = "policyCode", required = false) String policyCode) {
+        List<CreditPolicyView> versions = policies.listPolicies(policyCode);
         return ResponseEntity.ok(versions);
     }
 
@@ -55,8 +57,10 @@ public class CreditPolicyController {
      * Get one specific policy version.
      */
     @GetMapping("/{version}")
-    public ResponseEntity<CreditPolicyView> getPolicyVersion(@PathVariable int version) {
-        CreditPolicyView view = policies.getPolicyVersion(version);
+    public ResponseEntity<CreditPolicyView> getPolicyVersion(
+            @PathVariable int version,
+            @RequestParam(name = "policyCode", required = false) String policyCode) {
+        CreditPolicyView view = policies.getPolicyVersion(version, policyCode);
         return ResponseEntity.ok(view);
     }
 

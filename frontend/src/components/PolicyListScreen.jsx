@@ -49,7 +49,7 @@ function getPolicyName(row) {
   return `Credit Policy v${row.version}`;
 }
 
-export default function PolicyListScreen({ onViewDetails }) {
+export default function PolicyListScreen({ onViewDetails, notice }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rows, setRows] = useState([]);
@@ -91,7 +91,11 @@ export default function PolicyListScreen({ onViewDetails }) {
       header: 'Actions',
       tight: true,
       render: (r) => (
-        <Button size="sm" variant="secondary" onClick={() => onViewDetails(r.version)}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => onViewDetails(r.version, r.policy_name || null)}
+        >
           Details
         </Button>
       ),
@@ -111,14 +115,21 @@ export default function PolicyListScreen({ onViewDetails }) {
         </Alert>
       )}
 
+      {notice && (
+        <Alert tone="positive" title="Policy Updated">
+          {notice}
+        </Alert>
+      )}
+
       {loading ? (
         <p>Loading credit policy versions...</p>
       ) : (
         <DataTable
           columns={columns}
           rows={rows}
+          maxRows={null}
           total={rows.length}
-          rowKey={(r) => r.version}
+          rowKey={(r) => `${r.policy_name || 'UNKNOWN'}-${r.version}`}
           footnote="newest first"
           empty={
             <EmptyState title="No policy versions found">

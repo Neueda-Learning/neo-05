@@ -34,6 +34,8 @@ const SCREENS = [
 export default function App() {
   const [screen, setScreen] = useState('applications');
   const [selectedPolicyVersion, setSelectedPolicyVersion] = useState(null);
+  const [selectedPolicyCode, setSelectedPolicyCode] = useState(null);
+  const [policyListNotice, setPolicyListNotice] = useState(null);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
   const [health, setHealth] = useState(null);
@@ -70,6 +72,14 @@ export default function App() {
     const id = setInterval(refreshHealth, HEALTH_MS);
     return () => clearInterval(id);
   }, [refreshHealth]);
+
+  useEffect(() => {
+    if (!policyListNotice) {
+      return undefined;
+    }
+    const id = setTimeout(() => setPolicyListNotice(null), 3000);
+    return () => clearTimeout(id);
+  }, [policyListNotice]);
 
   const up = !error && health?.status === 'UP';
 
@@ -111,13 +121,20 @@ export default function App() {
             error={error}
             info={info}
             onRowClick={setSelectedCase}
+            onOpenPolicyEditor={() => {
+              setSelectedPolicyVersion(null);
+              setSelectedPolicyCode(null);
+              setScreen('policy-editor');
+            }}
           />
         )
       )}
       {screen === 'policy-list' && (
         <PolicyListScreen
-          onViewDetails={(version) => {
+          notice={policyListNotice}
+          onViewDetails={(version, policyCode) => {
             setSelectedPolicyVersion(version);
+            setSelectedPolicyCode(policyCode || null);
             setScreen('policy-editor');
           }}
         />
@@ -125,8 +142,13 @@ export default function App() {
       {screen === 'policy-editor' && (
         <PolicyEditorScreen
           selectedVersion={selectedPolicyVersion}
-          onBackToList={() => setScreen('policy-list')}
-          onOpenCurrentPolicy={() => setSelectedPolicyVersion(null)}
+          selectedPolicyCode={selectedPolicyCode}
+          onBackToList={(payload) => {
+            if (payload?.notice) {
+              setPolicyListNotice(payload.notice);
+            }
+            setScreen('policy-list');
+          }}
         />
       )}
       {screen === 'cases' && <CasesScreen />}

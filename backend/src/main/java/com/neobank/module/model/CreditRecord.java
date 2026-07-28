@@ -30,8 +30,14 @@ public class CreditRecord {
     @Column(name = "reference", nullable = false, length = 32)
     private String reference;
 
+    @Column(name = "applicant_fullname", length = 255)
+    private String applicantFullname;
+
     @Column(name = "credit_config_version", nullable = false)
     private Integer creditConfigVersion;
+
+    @Column(name = "credit_config_id")
+    private Long creditConfigId;
 
     @Column(name = "product_code", nullable = false, length = 32)
     private String productCode;
@@ -129,6 +135,7 @@ public class CreditRecord {
     }
 
     public void applyScoring(Integer configVersion,
+                             Long configId,
                              String productCode,
                              Integer annualIncome,
                              Integer monthlyIncome,
@@ -141,6 +148,7 @@ public class CreditRecord {
                              BigDecimal apr,
                              String capReason) {
         this.creditConfigVersion = configVersion;
+                    this.creditConfigId = configId;
         this.productCode = productCode;
         this.annualIncome = annualIncome;
         this.monthlyIncome = monthlyIncome;
@@ -152,6 +160,10 @@ public class CreditRecord {
         this.grantedLimit = grantedLimit;
         this.apr = apr;
         this.capReason = capReason;
+    }
+
+    public void setApplicantFullname(String applicantFullname) {
+        this.applicantFullname = applicantFullname;
     }
 
     public String apiStatus() {
@@ -177,8 +189,16 @@ public class CreditRecord {
         return reference;
     }
 
+    public String getApplicantFullname() {
+        return applicantFullname;
+    }
+
     public Integer getCreditConfigVersion() {
         return creditConfigVersion;
+    }
+
+    public Long getCreditConfigId() {
+        return creditConfigId;
     }
 
     public Integer getAnnualIncome() {
