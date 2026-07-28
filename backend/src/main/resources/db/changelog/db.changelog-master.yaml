@@ -10,3 +10,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-credit-record.yaml
   - include:
       file: db/changelog/changes/004-create-override-log.yaml
+  - include:
+      file: db/changelog/changes/005-insert-initial-config.yaml
