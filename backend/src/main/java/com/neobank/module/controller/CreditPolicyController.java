@@ -1,0 +1,49 @@
+package com.neobank.module.controller;
+
+import com.neobank.module.dto.CreditPolicyRequest;
+import com.neobank.module.dto.CreditPolicyView;
+import com.neobank.module.service.CreditPolicyService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * UC06: Risk manager changes credit policy without deploy.
+ * - GET /api/v1/credit-policy — fetch current policy for editor prefill (from UC05 simulator)
+ * - POST /api/v1/credit-policy — create new version with validation
+ */
+@RestController
+@RequestMapping("/api/v1/credit-policy")
+public class CreditPolicyController {
+
+    private final CreditPolicyService policies;
+
+    public CreditPolicyController(CreditPolicyService policies) {
+        this.policies = policies;
+    }
+
+    /**
+     * Get the current credit policy version, prefilled for editing.
+     * Invoked by PolicyEditorScreen when opened from UC05 simulator.
+     */
+    @GetMapping
+    public ResponseEntity<CreditPolicyView> getCurrentPolicy() {
+        CreditPolicyView current = policies.getCurrentPolicy();
+        return ResponseEntity.ok(current);
+    }
+
+    /**
+     * Create a new policy version. Validates all constraints.
+     * Increments version number automatically (current = MAX(version)).
+     */
+    @PostMapping
+    public ResponseEntity<CreditPolicyView> createVersion(@Valid @RequestBody CreditPolicyRequest request) {
+        CreditPolicyView created = policies.createVersion(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+}
