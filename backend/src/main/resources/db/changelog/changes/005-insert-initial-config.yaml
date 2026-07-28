@@ -3,11 +3,11 @@ databaseChangeLog:
       id: 005-insert-credit-config-v1
       author: neo-05
       preConditions:
-        onFail: MARK_RAN
-        onError: HALT
-          - sqlCheck:
-              expectedResult: "0"
-              sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
+        - onFail: MARK_RAN
+        - onError: HALT
+        - sqlCheck:
+            expectedResult: "0"
+            sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
       changes:
         - insert:
             tableName: credit_config
@@ -39,8 +39,8 @@ databaseChangeLog:
       id: 005-insert-credit-config-v2
       author: neo-05
       preConditions:
-        onFail: MARK_RAN
-        onError: HALT
+        - onFail: MARK_RAN
+        - onError: HALT
         - sqlCheck:
             expectedResult: "0"
             sql: SELECT COUNT(*) FROM credit_config WHERE version = 2
