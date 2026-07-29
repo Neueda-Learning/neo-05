@@ -17,6 +17,7 @@ import {
   Toolbar,
 } from '../design-system';
 import { api } from '../api.js';
+import { statusTone } from '../status.js';
 
 const CATALOGUE = [
   { code: 'CREDIT_CARD_PREMIUM', label: 'Premium', policyCode: 'PREMIUM' },
@@ -135,16 +136,6 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
     }
   };
 
-  const arrowFor = (from, to) => {
-    if (from === 'REFERRED' && to === 'ACCEPTED') {
-      return <span className="whatif-arrow whatif-up">↑</span>;
-    }
-    if (from === 'ACCEPTED' && to === 'REFERRED') {
-      return <span className="whatif-arrow whatif-down">↓</span>;
-    }
-    return <span className="whatif-arrow">→</span>;
-  };
-
   const columns = useMemo(
     () => [
       {
@@ -165,19 +156,13 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
         key: 'from',
         header: 'From',
         tight: true,
-        render: (row) => <Badge tone="warning">{row.from}</Badge>,
+        render: (row) => <Badge tone={statusTone(row.from)}>{row.from}</Badge>,
       },
       {
         key: 'to',
         header: 'To',
         tight: true,
-        render: (row) => <Badge tone="positive">{row.to}</Badge>,
-      },
-      {
-        key: 'direction',
-        header: 'Direction',
-        tight: true,
-        render: (row) => arrowFor(row.from, row.to),
+        render: (row) => <Badge tone={statusTone(row.to)}>{row.to}</Badge>,
       },
     ],
     [onOpenCase]
@@ -345,9 +330,9 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
                 </EmptyState>
               ) : (
                 <DataTable
-                  className="whatif-results-table"
                   columns={columns}
                   rows={result?.changes ?? []}
+                  maxRows={null}
                   total={result?.changes?.length ?? 0}
                   rowKey={(row) => row.applicationId}
                   footnote={result ? 'flips only' : 'Run simulation to show flips only'}
