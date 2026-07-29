@@ -1,5 +1,19 @@
 package com.neobank.module.service;
 
+import com.neobank.module.dto.ApplicantViewDto;
+import com.neobank.module.dto.CaseView;
+import com.neobank.module.dto.DemoShowcaseView;
+import com.neobank.module.integrations.orchestrator.Application;
+import com.neobank.module.integrations.orchestrator.ApplicationRequest;
+import com.neobank.module.integrations.orchestrator.OrchestratorClient;
+import com.neobank.module.model.CreditConfig;
+import com.neobank.module.model.CreditRecord;
+import com.neobank.module.model.Decision;
+import com.neobank.module.repository.CreditConfigRepository;
+import com.neobank.module.repository.CreditRecordRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -140,9 +154,7 @@ public class ApplicationService {
                 return;
             }
                 log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
-                CreditConfig activeConfig = creditConfigs
-                    .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
-                    .orElseThrow(() -> new IllegalStateException("No effective credit config found"));
+                CreditConfig activeConfig = selectActiveConfig(request.application());
                 ProductTerms terms = resolveTerms(activeConfig, request.application());
                 
                 ScoringInput input = scoringInput(request.application(), terms);
@@ -218,23 +230,146 @@ public class ApplicationService {
     }
 
     private ProductTerms resolveTerms(CreditConfig config, Application application) {
-        String normalizedCode = normalizeProductCode(application);
-        Map<String, ProductTermsRaw> termsByCode;
+        return resolveTerms(config, normalizeProductCode(application));
+    }
+
+    private ProductTerms resolveTerms(CreditConfig config, String normalizedCode) {
+        String catalogueCode = catalogueProductCode(normalizedCode);
+
+        ProductTerms fromColumns = termsFromProductRows(config, catalogueCode, normalizedCode);
+        if (fromColumns != null) {
+            return fromColumns;
+        }
+
+        String rawTerms = config.getProductTerms();
+        if (rawTerms == null || rawTerms.isBlank()) {
+            throw new IllegalStateException("credit_config.product_terms is required");
+        }
+        String trimmedTerms = rawTerms.trim();
+        if (!trimmedTerms.startsWith("{")
+                && !trimmedTerms.startsWith("[")
+                && !trimmedTerms.startsWith("\"")) {
+            return namedProfileTerms(trimmedTerms, catalogueCode, normalizedCode);
+        }
+
         try {
-            termsByCode = objectMapper.readValue(config.getProductTerms(), new TypeReference<>() {
-            });
+            JsonNode root = objectMapper.readTree(rawTerms);
+            if (root.isObject()) {
+                Map<String, ProductTermsRaw> termsByCode = objectMapper.convertValue(
+                        root, new TypeReference<>() { });
+                ProductTermsRaw terms = findObjectTerms(termsByCode, normalizedCode, catalogueCode);
+                if (terms != null) {
+                    return toProductTerms(normalizedCode, terms);
+                }
+            } else if (root.isArray()) {
+                List<ProductTermsListRaw> terms = objectMapper.convertValue(
+                        root, new TypeReference<>() { });
+                ProductTermsListRaw match = terms.stream()
+                        .filter(term -> catalogueCode.equals(catalogueProductCode(term.productCode())))
+                        .findFirst()
+                        .orElse(null);
+                if (match != null) {
+                    return new ProductTerms(normalizedCode, match.minIncome(), match.maxLimit(), match.apr());
+                }
+            } else if (root.isTextual()) {
+                return namedProfileTerms(root.asText(), catalogueCode, normalizedCode);
+            }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse credit_config.product_terms", e);
         }
 
-        ProductTermsRaw raw = termsByCode.get(normalizedCode);
-        if (raw == null) {
-            raw = termsByCode.get(legacyAlias(normalizedCode));
+        // New policy rows persist the profile as plain text rather than JSON text.
+        return namedProfileTerms(rawTerms, catalogueCode, normalizedCode);
+    }
+
+    private CreditConfig selectActiveConfig(Application application) {
+        String profile = policyProfile(application);
+        return creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc(profile)
+                .orElseGet(() -> creditConfigs
+                        .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
+                        .orElseThrow(() -> new IllegalStateException("No effective credit config found")));
+    }
+
+    private ProductTerms termsFromProductRows(CreditConfig config,
+                                               String catalogueCode,
+                                               String normalizedCode) {
+        List<CreditConfig> rows = creditConfigs
+                .findAllByVersionAndProductTermsOrderByConfigIdDesc(
+                        config.getVersion(), config.getProductTerms());
+        if (rows == null || rows.isEmpty()) {
+            rows = List.of(config);
         }
-        if (raw == null) {
-            throw new IllegalStateException("Unsupported product code in config: " + normalizedCode);
+
+        return rows.stream()
+                .filter(row -> catalogueCode.equals(catalogueProductCode(row.getProductCode())))
+                .filter(row -> row.getMinIncome() != null
+                        && row.getMaxLimit() != null
+                        && row.getApr() != null)
+                .findFirst()
+                .map(row -> new ProductTerms(
+                        normalizedCode,
+                        row.getMinIncome(),
+                        row.getMaxLimit(),
+                        BigDecimal.valueOf(row.getApr())))
+                .orElse(null);
+    }
+
+    private ProductTermsRaw findObjectTerms(Map<String, ProductTermsRaw> termsByCode,
+                                            String normalizedCode,
+                                            String catalogueCode) {
+        ProductTermsRaw direct = termsByCode.get(normalizedCode);
+        if (direct == null) {
+            direct = termsByCode.get(legacyAlias(normalizedCode));
         }
+        if (direct != null) {
+            return direct;
+        }
+        return termsByCode.entrySet().stream()
+                .filter(entry -> catalogueCode.equals(catalogueProductCode(entry.getKey())))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private ProductTerms toProductTerms(String normalizedCode, ProductTermsRaw raw) {
         return new ProductTerms(normalizedCode, raw.minIncome(), raw.maxLimit(), raw.apr());
+    }
+
+    private ProductTerms namedProfileTerms(String profile,
+                                           String catalogueCode,
+                                           String normalizedCode) {
+        String normalizedProfile = profile == null ? "" : profile.trim().toUpperCase();
+        if ("PLATIUM".equals(normalizedProfile)) {
+            normalizedProfile = "PLATINUM";
+        }
+
+        ProductTermsRaw raw = switch (normalizedProfile) {
+            case "PLATINUM" -> switch (catalogueCode) {
+                case "CREDIT_CARD_REWARDS" -> new ProductTermsRaw(24000, 8000, new BigDecimal("14.9"));
+                case "CREDIT_CARD_LOW_RATE" -> new ProductTermsRaw(18000, 5000, new BigDecimal("12.9"));
+                case "CREDIT_CARD_STUDENT" -> new ProductTermsRaw(12000, 1500, new BigDecimal("9.9"));
+                default -> null;
+            };
+            case "PREMIUM" -> switch (catalogueCode) {
+                case "CREDIT_CARD_REWARDS" -> new ProductTermsRaw(26000, 8500, new BigDecimal("15.2"));
+                case "CREDIT_CARD_LOW_RATE" -> new ProductTermsRaw(20000, 5500, new BigDecimal("13.4"));
+                case "CREDIT_CARD_STUDENT" -> new ProductTermsRaw(12000, 1800, new BigDecimal("10.2"));
+                default -> null;
+            };
+            case "STUDENT" -> switch (catalogueCode) {
+                case "CREDIT_CARD_REWARDS" -> new ProductTermsRaw(20000, 4500, new BigDecimal("16.9"));
+                case "CREDIT_CARD_LOW_RATE" -> new ProductTermsRaw(15000, 2500, new BigDecimal("14.9"));
+                case "CREDIT_CARD_STUDENT" -> new ProductTermsRaw(10000, 1200, new BigDecimal("9.9"));
+                default -> null;
+            };
+            default -> null;
+        };
+
+        if (raw == null) {
+            throw new IllegalStateException(
+                    "Unsupported product/profile configuration: " + catalogueCode + "/" + profile);
+        }
+        return toProductTerms(normalizedCode, raw);
     }
 
     private ScoringInput scoringInput(Application application, ProductTerms terms) {
@@ -258,14 +393,37 @@ public class ApplicationService {
 
     private String normalizeProductCode(Application application) {
         String code = application == null || application.product() == null ? null : application.product().productCode();
-        if (code == null) {
-            return "STANDARD";
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("productCode is required");
         }
         return switch (code) {
-            case "CREDIT_CARD_STANDARD" -> "STANDARD";
+            case "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> "STANDARD";
             case "CREDIT_CARD_REWARDS" -> "REWARDS";
             case "CREDIT_CARD_STUDENT" -> "STUDENT";
             default -> code;
+        };
+    }
+
+    private String policyProfile(Application application) {
+        return switch (catalogueProductCode(normalizeProductCode(application))) {
+            case "CREDIT_CARD_REWARDS" -> "PLATINUM";
+            case "CREDIT_CARD_LOW_RATE" -> "PREMIUM";
+            case "CREDIT_CARD_STUDENT" -> "STUDENT";
+            default -> throw new IllegalArgumentException("Unsupported productCode");
+        };
+    }
+
+    private String catalogueProductCode(String code) {
+        if (code == null || code.isBlank()) {
+            return "";
+        }
+        return switch (code.trim().toUpperCase()) {
+            case "REWARDS", "PLATINUM", "CREDIT_CARD_REWARDS", "CREDIT_CARD_PLATINUM" ->
+                    "CREDIT_CARD_REWARDS";
+            case "STANDARD", "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE",
+                    "CREDIT_CARD_PREMIUM" -> "CREDIT_CARD_LOW_RATE";
+            case "STUDENT", "CREDIT_CARD_STUDENT" -> "CREDIT_CARD_STUDENT";
+            default -> code.trim().toUpperCase();
         };
     }
 
@@ -295,6 +453,12 @@ public class ApplicationService {
     }
 
     private record ProductTermsRaw(Integer minIncome, Integer maxLimit, BigDecimal apr) {
+    }
+
+    private record ProductTermsListRaw(String productCode,
+                                       Integer minIncome,
+                                       Integer maxLimit,
+                                       BigDecimal apr) {
     }
 
     private record ScoringInput(int annualIncome,
@@ -351,16 +515,11 @@ public class ApplicationService {
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
         CreditConfig config = resolveConfigForCase(row);
         
-        // Extract minIncome from productTerms for the product code
+        // Read the product terms from the same pinned config representation used at decision time.
         Integer minIncome = null;
         if (row.getProductCode() != null) {
             try {
-                Map<String, ProductTermsRaw> termsByCode = objectMapper.readValue(config.getProductTerms(), new TypeReference<>() {
-                });
-                ProductTermsRaw terms = termsByCode.get(row.getProductCode());
-                if (terms != null) {
-                    minIncome = terms.minIncome();
-                }
+                minIncome = resolveTerms(config, row.getProductCode()).minIncome();
             } catch (Exception e) {
                 log.warn("Failed to extract minIncome for productCode {}", row.getProductCode(), e);
             }
