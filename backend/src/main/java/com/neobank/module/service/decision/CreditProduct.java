@@ -18,8 +18,9 @@ public enum CreditProduct {
 
         String normalized = productCode.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
-            case "PREMIUM", "CREDIT_CARD_PREMIUM" -> PREMIUM;
-            case "PLATINUM", "CREDIT_CARD_PLATINUM" -> PLATINUM;
+            case "STANDARD", "PREMIUM", "CREDIT_CARD_PREMIUM", "CREDIT_CARD_STANDARD",
+                    "CREDIT_CARD_LOW_RATE" -> PREMIUM;
+            case "REWARDS", "PLATINUM", "CREDIT_CARD_PLATINUM", "CREDIT_CARD_REWARDS" -> PLATINUM;
             case "STUDENT", "CREDIT_CARD_STUDENT" -> STUDENT;
             default -> throw new IllegalArgumentException(
                     "Unsupported credit product: " + productCode);

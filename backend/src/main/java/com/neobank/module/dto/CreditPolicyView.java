@@ -34,12 +34,12 @@ public record CreditPolicyView(
         Instant effectiveFrom) {
 
     private static final Map<String, String> POLICY_CODE_TO_NAME = Map.of(
-            "CREDIT_CARD_REWARDS", "PLATINUM",
-            "CREDIT_CARD_STANDARD", "PREMIUM",
-            "CREDIT_CARD_LOW_RATE", "PREMIUM",
+            "CREDIT_CARD_REWARDS", "REWARDS",
+            "CREDIT_CARD_STANDARD", "STANDARD",
+            "CREDIT_CARD_LOW_RATE", "STANDARD",
             "CREDIT_CARD_STUDENT", "STUDENT",
-            "PLATINUM", "PLATINUM",
-            "PREMIUM", "PREMIUM",
+            "PLATINUM", "REWARDS",
+            "PREMIUM", "STANDARD",
             "STUDENT", "STUDENT"
     );
 
@@ -83,7 +83,7 @@ public record CreditPolicyView(
             return null;
         }
         if ("PLATIUM".equals(normalized)) {
-            return "PLATINUM";
+            return "REWARDS";
         }
         return POLICY_CODE_TO_NAME.getOrDefault(normalized, normalized);
     }

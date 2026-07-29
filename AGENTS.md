@@ -1,4 +1,4 @@
-# AGENTS.md — working in this repo
+# S.md — working in this repo
 
 This is one of ten identical services in the **neo-bank onboarding** capstone
 (superproject: [`neo-00`](https://github.com/Neueda-Learning/neo-00)). Read this before

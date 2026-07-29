@@ -29,8 +29,8 @@ class CreditPolicyServiceLegacyParseTest {
         CreditConfig legacy = CreditConfig.of(
                 2,
                 """
-                {"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},
-                 "PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},
+                {"STANDARD":{"minIncome":20000,"maxLimit":5500,"apr":13.4},
+                 "REWARDS":{"minIncome":26000,"maxLimit":8500,"apr":15.2},
                  "STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}
                 """,
                 new BigDecimal("0.42"),
@@ -59,7 +59,7 @@ class CreditPolicyServiceLegacyParseTest {
 
         CreditConfig namedProfile = CreditConfig.of(
                 2,
-                "PREMIUM",
+                "STANDARD",
                 new BigDecimal("0.42"),
                 new BigDecimal("100"),
                 5,
@@ -70,7 +70,7 @@ class CreditPolicyServiceLegacyParseTest {
 
         CreditPolicyView current = service.getCurrentPolicy();
 
-        assertThat(current.policyName()).isEqualTo("PREMIUM");
+        assertThat(current.policyName()).isEqualTo("STANDARD");
         assertThat(current.productTerms()).hasSize(3);
         assertThat(current.productTerms()).extracting(t -> t.productCode())
                 .containsExactly(

@@ -26,11 +26,11 @@ function getPolicyName(row) {
 
   if (Array.isArray(row.product_terms) && row.product_terms.length > 0) {
     const displayMap = {
-      CREDIT_CARD_REWARDS: 'PLATINUM',
-      CREDIT_CARD_LOW_RATE: 'PREMIUM',
+      CREDIT_CARD_REWARDS: 'REWARDS',
+      CREDIT_CARD_LOW_RATE: 'STANDARD',
       CREDIT_CARD_STUDENT: 'STUDENT',
-      PLATINUM: 'PLATINUM',
-      PREMIUM: 'PREMIUM',
+      PLATINUM: 'REWARDS',
+      PREMIUM: 'STANDARD',
       STUDENT: 'STUDENT',
     };
 
