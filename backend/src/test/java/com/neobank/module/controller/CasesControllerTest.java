@@ -77,7 +77,7 @@ class CasesControllerTest {
         ApplicantViewDto dto = new ApplicantViewDto(
                 "Daniel Osei", "1987-05-12", "PERMANENT",
                 new ApplicantViewDto.FinancesView(48000, 1200, 900),
-                5000);
+                5000, "MOBILE_APP", "CREDIT_CARD_REWARDS", false);
         when(applications.getApplicant("app-1301")).thenReturn(dto);
 
         mvc.perform(get("/cases/app-1301/applicant"))

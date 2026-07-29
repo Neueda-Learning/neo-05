@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.client.HttpClientErrorException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -387,11 +390,21 @@ public class ApplicationService {
      * Fetch and return applicant details from the orchestrator — UC 03.
      * This is a live proxy call, never persisted. The applicant data is always fetched fresh.
      *
-     * @throws Exception if the orchestrator is unreachable or returns an error
+     * <p>When the orchestrator returns 404 (application not found in the remote store), a partial
+     * fallback is built from the locally stored {@link CreditRecord}: only {@code productCode} is
+     * populated; all other fields are null so the UI renders "—". The response is still HTTP 200
+     * so the case detail page can show whatever it has rather than failing entirely.</p>
      */
     public ApplicantViewDto getApplicant(String applicationId) {
-        Application application = orchestrator.fetchApplication(applicationId);
-        return ApplicantViewDto.of(application);
+        try {
+            Application application = orchestrator.fetchApplication(applicationId);
+            return ApplicantViewDto.of(application);
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("Orchestrator returned 404 for applicant {}; returning partial from DB", applicationId);
+            return creditRecords.findById(applicationId)
+                    .map(ApplicantViewDto::fromRecord)
+                    .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+        }
     }
 
     /**

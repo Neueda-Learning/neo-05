@@ -1,40 +1,50 @@
-# Module 5 · Credit Decisioning — UC 03 · View Applicant
+# Module 5 · Credit Decisioning — UC 02 · Review Decision Workings
 
 > AI implementation brief, generated from the v5 spec (`spec/.../use-cases/`). Source of truth is the spec; regenerate, don't hand-edit.
 
 ## Context
 
 - Module: 5 · Credit Decisioning · category Rule · domain `credit` · command `assess-credit` · outcomes: APPROVED, REFERRED, DECLINED
-- Use case: 03 · View Applicant · track D · prerequisite: screen shell from 02 · build shape: API+FE · primary screen: Decision Workings sidebar
-- Data effect: none — by design
+- Use case: 02 · Review Decision Workings · track B · prerequisite: after 00 + 06 — the terms come from CreditConfig · build shape: API+FE (engine: DB) · primary screen: Decision Workings
+- Data effect: read-only (row written earlier)
 - Platform rules (non-negotiable): the orchestrator is the only caller; the whole application arrives in the envelope (plus the v5 `outputs` block, Option A); steps are independent and re-orderable; the payload is NEVER stored — only `applicationId`; every module ships `GET /cases/{id}/applicant` proxying the orchestrator; big lists are empty by default and capped at 10 rows (≤10 hydration calls); ALL APIs are idempotent — same request twice, same result once; every endpoint appears in the service's OpenAPI 3.0 (Swagger) spec.
 
 ## Story
 
-As a bank employee I want to see who a credit decision is about without leaving the record — and without this module ever copying applicant data.
+As a bank employee I want to open a credit decision and see every number behind it — monthly income, outgoings, DTI, the three limit candidates, the rounding, the caps — enough to explain it to the customer.
 
 ## Contract
 
 ```
-GET /cases/{id}/applicant →  (proxy)
-GET {orchestratorUrl}/api/v1/
-        applications/{applicationId}
-→ { …whole Application object… }
+GET /cases/{applicationId} →
+{"outcome":"APPROVED","machineOutcome":"APPROVED",
+ "reference":"cre-000517","creditConfigVersion":1,
+ "workings":{"annualIncome":34000,
+  "monthlyIncome":2833,"monthlyOutgoings":1180,
+  "dti":0.42,"dtiLimit":0.45,
+  "incomeBasisLimit":2833,"productMaxLimit":10000,
+  "requestedLimit":3000,"grantedLimit":2800,
+  "apr":24.9,"capReason":null},
+ "sampling":{"sampled":false}}
 ```
 
 ## Acceptance criteria
 
-1. The Decision Workings sidebar renders fullName, dateOfBirth, employment.status, finances (annualIncome, monthlyHousingCost, existingCreditCommitments) and product.requestedCreditLimit — fetched live.
-2. For app-1301 the sidebar shows Daniel Osei · PERMANENT · £48,000 — the lender reads the person beside the DTI that referred him.  ⟵ **checkpoint — exact value**
-3. Nothing from the response is persisted — restart the module, the sidebar still works, the schema still holds zero applicant-identifying columns.
-4. Orchestrator unreachable → the sidebar shows a retryable error state; the workings panel still renders every stored number from local data.
-5. The proxy passes applicationId through untouched — no id mapping tables.
+1. GET /cases/{applicationId} → 200 + outcome, machineOutcome, reference, creditConfigVersion, the full workings block and the sampling block.
+2. Maria Nowak (app-1234): monthlyIncome 2833, monthlyOutgoings 1180, DTI 0.42, candidates 2833/10000/3000 → grantedLimit 2800, apr 24.9, outcome APPROVED with CRE_APPROVED.  ⟵ **checkpoint — exact value**
+3. Daniel Osei (app-1301): monthlyIncome 4000, outgoings 2320, DTI 0.58 → REFERRED with CRE_AFFORDABILITY_EXCEEDED — no matter how high the income.  ⟵ **checkpoint — exact value**
+4. Chloe Barrett (app-1310): £14,000 against the REWARDS minimum £20,000 → DECLINED with CRE_INCOME_BELOW_MINIMUM; affordability is never computed, DTI is null.  ⟵ **checkpoint — exact value**
+5. Zero annualIncome on the STUDENT card (minIncome 0) → DTI null, REFERRED with CRE_AFFORDABILITY_EXCEEDED — no division-by-zero, ever.
+6. A calculated basis above the request caps to the request with CRE_LIMIT_CAPPED_TO_REQUEST; a request above the product max caps to the max with CRE_LIMIT_CAPPED_TO_BAND_MAX — and is NOT a decline.
+7. DTI exactly 0.45 passes rule 2 — the limit is "above", not "at or above"; the boundary is tested.
+8. The fixture's 21st credit decision (app-1296) → REFERRED with CRE_SAMPLED_FOR_REVIEW, machineOutcome APPROVED, its machine limit stored in the workings.  ⟵ **checkpoint — exact value**
+9. Repeated /execute for the same applicationId → still one row, no recalculation, callback replays the stored outcome; unknown applicationId → 404 with a JSON error body.
 
 ## Expected data changes
 
-- **Zero writes, zero copies.** The whole point: one copy of the truth, owned by the orchestrator.
-- MySQL is not even touched on this path.
-- If the orchestrator is down the module stays healthy — the workings are local, only the sidebar degrades.
+- **This GET changes nothing.** The row it reads was written once, off-thread, by /execute.
+- On /execute: INSERT credit_record — outcome, machineOutcome, every workings number as a plain column, creditConfigVersion pinned.
+- Unique key on application_id is what makes the idempotency AC provable.
 
 ## Diagrams
 
@@ -42,7 +52,7 @@ GET {orchestratorUrl}/api/v1/
 
 ### Sequence — this use case
 
-![Sequence — this use case](diagrams/uc-03-sequence.jpg)
+![Sequence — this use case](diagrams/uc-02-sequence.jpg)
 
 <details><summary>mermaid source</summary>
 
@@ -52,13 +62,14 @@ sequenceDiagram
     participant UI
     participant Controller
     participant Service
-    participant Orchestrator
-    UI->>Controller: GET /cases/app-1301/applicant
-    Controller->>Service: getApplicant(applicationId)
-    Service->>Orchestrator: GET /api/v1/applications/app-1301
-    Orchestrator-->>Service: 200 — whole Application
-    Service-->>Controller: ApplicantViewDto (subset)
-    Controller-->>UI: 200 OK — sidebar payload
+    participant MySQL
+    UI->>Controller: GET /cases/app-1234
+    Controller->>Service: getCase(applicationId)
+    Service->>MySQL: SELECT … WHERE application_id = ?
+    MySQL-->>Service: row — workings as plain columns
+    Service-->>Controller: WorkingsDto (every number)
+    Controller-->>UI: 200 OK — outcome + workings
+    Note over UI,MySQL: The engine runs at /execute time, not at read time — the workings panel replays stored arithmetic, it never recalculates.
 ```
 
 </details>
@@ -175,15 +186,19 @@ stateDiagram-v2
 
 ## Out of scope
 
-Caching applicant data; storing any applicant field in this module's schema (the workings columns store this module's arithmetic — nothing identifying).
+Editing a case (records are immutable — queue decision is UC 04, override is UC 08); the /execute wiring itself (template gives it).
 
 ## Build notes
 
-THE standard application-fetch GET every module ships (v5 platform rule) — the same proxy hydrates the board's name column (UC 01) and the queue's rows (UC 04). It goes to the orchestrator only, server-side, so the browser needs no CORS exception. The sidebar shows the declared finances beside the stored workings — the lender sees input and arithmetic together.
+The engine is ONE plain function: (application, CreditConfig) → decision + workings. Build and unit-test it before any Spring wiring — it is the easiest part to test properly and the easiest to get subtly wrong. Integer arithmetic: monthlyIncome = annualIncome / 12 truncated; DTI computed at 2 decimals; the £100 floor applies to the three-way minimum, at the end. Zero monthly income → DTI null → REFERRED, guarded before any division.
 
 ## Tests
 
-Service test with a mocked orchestrator client: happy path + orchestrator down → sidebar error, workings still render.
+Engine: table-driven unit tests — Maria's £2,800, Daniel's 0.58, Chloe's rule-1 decline, the £0-income student, both caps, boundary DTI exactly 0.45 (passes), sampling positions; slice test for the GET.
+
+## Sequence caption
+
+The engine runs at /execute time, not at read time — the workings panel replays stored arithmetic, it never recalculates.
 
 ## Definition of done
 
