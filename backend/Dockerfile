@@ -9,6 +9,8 @@ COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 COPY src/ src/
 RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    sed -i 's/\r$//' ./mvnw && \
+    chmod +x ./mvnw && \
     ./mvnw -B -q clean package -DskipTests
 
 FROM eclipse-temurin:21-jre AS runtime
