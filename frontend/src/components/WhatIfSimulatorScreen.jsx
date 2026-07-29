@@ -3,11 +3,18 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   DataTable,
   EmptyState,
+  Field,
+  FormGrid,
   Grid,
   MetricTile,
   PageHeader,
+  Section,
+  Select,
+  Stack,
+  TextInput,
   Toolbar,
 } from '../design-system';
 import { api } from '../api.js';
@@ -191,15 +198,18 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
       )}
 
       <div className="whatif-layout">
-        <section className="whatif-pane">
-          <h2>Draft Config</h2>
-
-          <div className="whatif-banner" role="note" aria-live="polite">
+        <Card className="whatif-draft-card">
+          <Stack gap={2}>
+          <h2 className="whatif-pane-heading">Draft Config</h2>
+          <Alert tone="neutral" className="whatif-banner-alert">
             This simulation saves nothing and triggers no callbacks
-          </div>
+          </Alert>
 
-          <div className="whatif-field-row">
-            <label htmlFor="dtiLimit">DTI Limit</label>
+          <Field
+            label="DTI Limit"
+            htmlFor="dtiLimit"
+            hint={`Current: ${Number(currentPolicy.dti_limit).toFixed(2)} -> Draft: ${Number(draft.dti_limit).toFixed(2)}`}
+          >
             <div className="whatif-dti-controls">
               <input
                 id="dtiLimit"
@@ -210,8 +220,10 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
                 value={draft.dti_limit}
                 onChange={(e) => setDraft((prev) => ({ ...prev, dti_limit: Number(e.target.value) }))}
                 disabled={loadingConfig || simulating}
+                style={{ '--whatif-range-fill': `${((draft.dti_limit - 0.01) / (0.99 - 0.01)) * 100}%` }}
               />
-              <input
+              <TextInput
+                size="sm"
                 type="number"
                 min="0.01"
                 max="0.99"
@@ -221,129 +233,133 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
                 disabled={loadingConfig || simulating}
               />
             </div>
-            <p className="whatif-compare">Current: {Number(currentPolicy.dti_limit).toFixed(2)} -&gt; Draft: {Number(draft.dti_limit).toFixed(2)}</p>
-          </div>
+          </Field>
 
-          <div className="whatif-field-row">
-            <label htmlFor="roundingStep">Rounding Step</label>
-            <input
-              id="roundingStep"
-              type="number"
-              min="1"
-              value={draft.rounding_step}
-              onChange={(e) => setDraft((prev) => ({ ...prev, rounding_step: parseInt(e.target.value, 10) || 1 }))}
-              disabled={simulating}
-            />
-            <p className="whatif-compare">Current: {Number(currentPolicy.rounding_step)} -&gt; Draft: {Number(draft.rounding_step)}</p>
-          </div>
-
-          <div className="whatif-field-row">
-            <label htmlFor="sampleEvery">Sample Every</label>
-            <input
-              id="sampleEvery"
-              type="number"
-              min="1"
-              value={draft.sample_every}
-              onChange={(e) => setDraft((prev) => ({ ...prev, sample_every: parseInt(e.target.value, 10) || 1 }))}
-              disabled={simulating}
-            />
-          </div>
-
-          <div className="whatif-terms-header whatif-section-divider">
-            <h3>Product Terms</h3>
-          </div>
-
-          <div className="whatif-field-row">
-            <label htmlFor="productType">Product Type</label>
-            <select
-              id="productType"
-              value={selectedProductIndex}
-              onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
-              disabled={simulating}
+          <FormGrid cols={2}>
+            <Field
+              label="Rounding Step"
+              htmlFor="roundingStep"
+              hint={`Current: ${Number(currentPolicy.rounding_step)} -> Draft: ${Number(draft.rounding_step)}`}
             >
-              {CATALOGUE.map((entry, index) => (
-                <option key={entry.code} value={index}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              <TextInput
+                id="roundingStep"
+                size="sm"
+                type="number"
+                min="1"
+                value={draft.rounding_step}
+                onChange={(e) => setDraft((prev) => ({ ...prev, rounding_step: parseInt(e.target.value, 10) || 1 }))}
+                disabled={simulating}
+              />
+            </Field>
 
-          {selectedTerm && (
-            <div className="product-grid">
-              <div className="form-group">
-                <label>Min Income</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={selectedTerm.minIncome}
-                  onChange={(e) => updateTerm(selectedProductIndex, 'minIncome', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label>Max Limit</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={selectedTerm.maxLimit}
-                  onChange={(e) => updateTerm(selectedProductIndex, 'maxLimit', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label>APR %</label>
-                <input
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={selectedTerm.apr}
-                  onChange={(e) => updateTerm(selectedProductIndex, 'apr', e.target.value)}
-                />
-              </div>
-            </div>
-          )}
+            <Field
+              label="Sample Every"
+              htmlFor="sampleEvery"
+              hint={`Current: ${Number(currentPolicy.sample_every)} -> Draft: ${Number(draft.sample_every)}`}
+            >
+              <TextInput
+                id="sampleEvery"
+                size="sm"
+                type="number"
+                min="1"
+                value={draft.sample_every}
+                onChange={(e) => setDraft((prev) => ({ ...prev, sample_every: parseInt(e.target.value, 10) || 1 }))}
+                disabled={simulating}
+              />
+            </Field>
+          </FormGrid>
 
-          <Toolbar className="whatif-section-divider">
+          <Section title="Product Terms" className="whatif-section-divider">
+            <Field label="Product Type" htmlFor="productType" className="whatif-product-type-field">
+              <Select
+                id="productType"
+                size="sm"
+                value={selectedProductIndex}
+                onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
+                disabled={simulating}
+                options={CATALOGUE.map((entry, index) => ({ value: index, label: entry.label }))}
+              />
+            </Field>
+
+            {selectedTerm && (
+              <FormGrid cols={3}>
+                <Field label="Min Income">
+                  <TextInput
+                    size="sm"
+                    type="number"
+                    min="0"
+                    value={selectedTerm.minIncome}
+                    onChange={(e) => updateTerm(selectedProductIndex, 'minIncome', e.target.value)}
+                  />
+                </Field>
+                <Field label="Max Limit">
+                  <TextInput
+                    size="sm"
+                    type="number"
+                    min="1"
+                    value={selectedTerm.maxLimit}
+                    onChange={(e) => updateTerm(selectedProductIndex, 'maxLimit', e.target.value)}
+                  />
+                </Field>
+                <Field label="APR %">
+                  <TextInput
+                    size="sm"
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={selectedTerm.apr}
+                    onChange={(e) => updateTerm(selectedProductIndex, 'apr', e.target.value)}
+                  />
+                </Field>
+              </FormGrid>
+            )}
+          </Section>
+
+          <Toolbar className="whatif-section-divider whatif-toolbar-tight">
             <Button variant="secondary" size="sm" onClick={runSimulation} busy={simulating} busyLabel="Running">
               Run Simulation
             </Button>
           </Toolbar>
-        </section>
+          </Stack>
+        </Card>
 
-        <section className="whatif-pane">
-          <div className="whatif-results-head">
-            <h2>Results</h2>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onOpenPolicyEditor?.(draft, CATALOGUE[selectedProductIndex]?.policyCode)}
-            >
-              Apply Draft -&gt;
-            </Button>
-          </div>
+        <Card className="whatif-results-card">
+          <Stack gap={4}>
+            <div className="whatif-results-head">
+              <h2 className="whatif-pane-heading">Results</h2>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onOpenPolicyEditor?.(draft, CATALOGUE[selectedProductIndex]?.policyCode)}
+              >
+                Apply Draft -&gt;
+              </Button>
+            </div>
 
-          <Grid cols={2} min={180}>
-            <MetricTile label="Evaluated" value={result?.evaluated ?? 0} />
-            <MetricTile label="Flips" value={result?.flips ?? 0} tone={(result?.flips ?? 0) > 0 ? 'warning' : 'positive'} />
-          </Grid>
+            <Grid cols={2} min={180}>
+              <MetricTile label="Evaluated" value={result?.evaluated ?? 0} />
+              <MetricTile label="Flips" value={result?.flips ?? 0} tone={(result?.flips ?? 0) > 0 ? 'warning' : 'positive'} />
+            </Grid>
 
-          <div className="whatif-results-body">
-            {(result && result.flips === 0) ? (
-              <EmptyState title="No changes from current config">
-                This draft matches the current config exactly. No cases flip.
-              </EmptyState>
-            ) : (
-              <DataTable
-                className="whatif-results-table"
-                columns={columns}
-                rows={result?.changes ?? []}
-                total={result?.changes?.length ?? 0}
-                rowKey={(row) => row.applicationId}
-                footnote={result ? 'flips only' : 'Run simulation to show flips only'}
-                empty={<EmptyState title="No flips yet">Run simulation to see flipped cases.</EmptyState>}
-              />
-            )}
-          </div>
-        </section>
+            <div className="whatif-results-body">
+              {(result && result.flips === 0) ? (
+                <EmptyState title="No changes from current config">
+                  This draft matches the current config exactly. No cases flip.
+                </EmptyState>
+              ) : (
+                <DataTable
+                  className="whatif-results-table"
+                  columns={columns}
+                  rows={result?.changes ?? []}
+                  total={result?.changes?.length ?? 0}
+                  rowKey={(row) => row.applicationId}
+                  footnote={result ? 'flips only' : 'Run simulation to show flips only'}
+                  empty={<EmptyState title="No flips yet">Run simulation to see flipped cases.</EmptyState>}
+                />
+              )}
+            </div>
+          </Stack>
+        </Card>
       </div>
     </>
   );
