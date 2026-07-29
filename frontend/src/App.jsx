@@ -170,6 +170,7 @@ export default function App() {
             setScreen('applications');
           }}
         />
+      )}
       {screen === 'referred-queue' && (
         selectedReferredCase ? (
           <CaseDetailScreen caseId={selectedReferredCase} onClose={() => setSelectedReferredCase(null)} />
