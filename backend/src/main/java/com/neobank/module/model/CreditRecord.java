@@ -136,6 +136,12 @@ public class CreditRecord {
         this.decidedBy = null;
     }
 
+    public void markFinal(String status, String reason) {
+        this.outcome = status;
+        this.machineOutcome = status;
+        this.machineDecisionReason = reason;
+    }
+
     public void applyManualOverride(String status,
                                     Integer grantedLimit,
                                     String reason,
