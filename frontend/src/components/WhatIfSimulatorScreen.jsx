@@ -13,9 +13,9 @@ import {
 import { api } from '../api.js';
 
 const CATALOGUE = [
-  { code: 'CREDIT_CARD_STANDARD', label: 'STANDARD' },
-  { code: 'CREDIT_CARD_REWARDS', label: 'REWARDS' },
-  { code: 'CREDIT_CARD_STUDENT', label: 'STUDENT' },
+  { code: 'CREDIT_CARD_PREMIUM', label: 'Premium', policyCode: 'PREMIUM' },
+  { code: 'CREDIT_CARD_PLATINUM', label: 'Platinum', policyCode: 'PLATINUM' },
+  { code: 'CREDIT_CARD_STUDENT', label: 'Student', policyCode: 'STUDENT' },
 ];
 
 const FALLBACK_DRAFT = {
@@ -23,8 +23,8 @@ const FALLBACK_DRAFT = {
   rounding_step: 100,
   sample_every: 7,
   product_terms: [
-    { productCode: 'CREDIT_CARD_STANDARD', minIncome: 12000, maxLimit: 5000, apr: 29.9 },
-    { productCode: 'CREDIT_CARD_REWARDS', minIncome: 20000, maxLimit: 10000, apr: 24.9 },
+    { productCode: 'CREDIT_CARD_PREMIUM', minIncome: 12000, maxLimit: 5000, apr: 29.9 },
+    { productCode: 'CREDIT_CARD_PLATINUM', minIncome: 20000, maxLimit: 10000, apr: 24.9 },
     { productCode: 'CREDIT_CARD_STUDENT', minIncome: 0, maxLimit: 1000, apr: 34.9 },
   ],
 };
@@ -34,8 +34,8 @@ function normalizeTerms(terms = []) {
   terms.forEach((term) => {
     const code = String(term.productCode || '').toUpperCase();
     if (code.includes('LOW_RATE') || code.includes('STANDARD') || code.includes('PREMIUM')) {
-      map.set('CREDIT_CARD_STANDARD', {
-        productCode: 'CREDIT_CARD_STANDARD',
+      map.set('CREDIT_CARD_PREMIUM', {
+        productCode: 'CREDIT_CARD_PREMIUM',
         minIncome: term.minIncome,
         maxLimit: term.maxLimit,
         apr: term.apr,
@@ -43,8 +43,8 @@ function normalizeTerms(terms = []) {
       return;
     }
     if (code.includes('REWARDS') || code.includes('PLATINUM')) {
-      map.set('CREDIT_CARD_REWARDS', {
-        productCode: 'CREDIT_CARD_REWARDS',
+      map.set('CREDIT_CARD_PLATINUM', {
+        productCode: 'CREDIT_CARD_PLATINUM',
         minIncome: term.minIncome,
         maxLimit: term.maxLimit,
         apr: term.apr,
@@ -68,7 +68,7 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState(null);
-  const [showTerms, setShowTerms] = useState(false);
+  const [selectedProductIndex, setSelectedProductIndex] = useState(0);
   const [currentPolicy, setCurrentPolicy] = useState(FALLBACK_DRAFT);
   const [draft, setDraft] = useState(FALLBACK_DRAFT);
   const [result, setResult] = useState(null);
@@ -113,6 +113,8 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
       ),
     }));
   };
+
+  const selectedTerm = draft.product_terms[selectedProductIndex] || null;
 
   const runSimulation = async () => {
     setError(null);
@@ -249,57 +251,59 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
 
           <div className="whatif-terms-header whatif-section-divider">
             <h3>Product Terms</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowTerms((prev) => !prev)}
-            >
-              {showTerms ? 'Collapse' : 'Expand'}
-            </Button>
           </div>
 
-          {showTerms && (
-            <div className="whatif-terms-list">
-              {draft.product_terms.map((term, index) => (
-                <div className="product-card" key={term.productCode}>
-                  <h3>{CATALOGUE[index]?.label || term.productCode}</h3>
-                  <div className="product-grid">
-                    <div className="form-group">
-                      <label>minIncome</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={term.minIncome}
-                        onChange={(e) => updateTerm(index, 'minIncome', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>maxLimit</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={term.maxLimit}
-                        onChange={(e) => updateTerm(index, 'maxLimit', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>apr</label>
-                      <input
-                        type="number"
-                        min="0.1"
-                        step="0.1"
-                        value={term.apr}
-                        onChange={(e) => updateTerm(index, 'apr', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
+          <div className="whatif-field-row">
+            <label htmlFor="productType">Product Type</label>
+            <select
+              id="productType"
+              value={selectedProductIndex}
+              onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
+              disabled={simulating}
+            >
+              {CATALOGUE.map((entry, index) => (
+                <option key={entry.code} value={index}>
+                  {entry.label}
+                </option>
               ))}
+            </select>
+          </div>
+
+          {selectedTerm && (
+            <div className="product-grid">
+              <div className="form-group">
+                <label>Min Income</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={selectedTerm.minIncome}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'minIncome', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Max Limit</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={selectedTerm.maxLimit}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'maxLimit', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>APR %</label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={selectedTerm.apr}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'apr', e.target.value)}
+                />
+              </div>
             </div>
           )}
 
           <Toolbar className="whatif-section-divider">
-            <Button variant="primary" onClick={runSimulation} busy={simulating} busyLabel="Running">
+            <Button variant="secondary" size="sm" onClick={runSimulation} busy={simulating} busyLabel="Running">
               Run Simulation
             </Button>
           </Toolbar>
@@ -308,7 +312,11 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
         <section className="whatif-pane">
           <div className="whatif-results-head">
             <h2>Results</h2>
-            <Button variant="ghost" onClick={() => onOpenPolicyEditor?.(draft)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenPolicyEditor?.(draft, CATALOGUE[selectedProductIndex]?.policyCode)}
+            >
               Apply Draft -&gt;
             </Button>
           </div>
@@ -325,6 +333,7 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
               </EmptyState>
             ) : (
               <DataTable
+                className="whatif-results-table"
                 columns={columns}
                 rows={result?.changes ?? []}
                 total={result?.changes?.length ?? 0}

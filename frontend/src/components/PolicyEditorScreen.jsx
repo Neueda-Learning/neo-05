@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, EmptyState } from '../design-system';
 import { fetchApi } from '../api.js';
 import '../styles.css';
@@ -9,7 +9,23 @@ const POLICY_TO_PRODUCT_CODE = {
   STUDENT: 'CREDIT_CARD_STUDENT',
 };
 
-export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode, onBackToList }) {
+// What-if's draft uses CREDIT_CARD_STANDARD/REWARDS/STUDENT; this editor's own
+// product_terms use CREDIT_CARD_LOW_RATE for the same "premium" tier — map on the way in.
+function mapDraftProductCode(rawCode) {
+  const code = String(rawCode || '').toUpperCase();
+  if (code.includes('STANDARD') || code.includes('PREMIUM') || code.includes('LOW_RATE')) {
+    return 'CREDIT_CARD_LOW_RATE';
+  }
+  if (code.includes('REWARDS') || code.includes('PLATINUM')) {
+    return 'CREDIT_CARD_REWARDS';
+  }
+  if (code.includes('STUDENT')) {
+    return 'CREDIT_CARD_STUDENT';
+  }
+  return rawCode;
+}
+
+export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode, initialDraft, onBackToList }) {
   const [isDraftFromVersion, setIsDraftFromVersion] = useState(false);
   const isReadOnly = Number.isInteger(selectedVersion) && !isDraftFromVersion;
   const [rememberedPolicyCode, setRememberedPolicyCode] = useState(selectedPolicyCode || null);
@@ -19,6 +35,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const appliedDraftRef = useRef(null);
 
   const [policy, setPolicy] = useState({
     version: null,
@@ -80,6 +97,37 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
     setError(null);
     setRememberedPolicyCode(selectedPolicyCode || null);
   }, [selectedVersion, selectedPolicyCode]);
+
+  // Carries over the What-if Simulator's draft (dti_limit/rounding_step/sample_every/product_terms)
+  // once the baseline policy has finished loading, so "Apply Draft" doesn't land on an empty form.
+  // Guarded by object identity so it applies exactly once per draft, and never re-applies over
+  // the operator's own edits.
+  useEffect(() => {
+    if (loading || !initialDraft || appliedDraftRef.current === initialDraft) {
+      return;
+    }
+    appliedDraftRef.current = initialDraft;
+
+    const mappedTerms = Array.isArray(initialDraft.product_terms)
+      ? initialDraft.product_terms.map((term) => ({
+          productCode: mapDraftProductCode(term.productCode),
+          minIncome: term.minIncome,
+          maxLimit: term.maxLimit,
+          apr: term.apr,
+        }))
+      : [];
+
+    setPolicy((prev) => ({
+      ...prev,
+      dti_limit: Number(initialDraft.dti_limit),
+      rounding_step: Number(initialDraft.rounding_step),
+      sample_every: Number(initialDraft.sample_every),
+      product_terms: mappedTerms.length === 3 ? mappedTerms : prev.product_terms,
+    }));
+    setIsDraftFromVersion(true);
+    setSuccess(null);
+    setError(null);
+  }, [loading, initialDraft]);
 
   const updatePolicyField = (field, value) => {
     setPolicy((prev) => ({

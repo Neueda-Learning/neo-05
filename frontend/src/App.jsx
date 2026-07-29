@@ -127,6 +127,7 @@ export default function App() {
             onOpenPolicyEditor={() => {
               setSelectedPolicyVersion(null);
               setSelectedPolicyCode(null);
+              setDraftForEditor(null);
               setScreen('policy-editor');
             }}
           />
@@ -138,6 +139,7 @@ export default function App() {
           onViewDetails={(version, policyCode) => {
             setSelectedPolicyVersion(version);
             setSelectedPolicyCode(policyCode || null);
+            setDraftForEditor(null);
             setScreen('policy-editor');
           }}
         />
@@ -146,10 +148,12 @@ export default function App() {
         <PolicyEditorScreen
           selectedVersion={selectedPolicyVersion}
           selectedPolicyCode={selectedPolicyCode}
+          initialDraft={draftForEditor}
           onBackToList={(payload) => {
             if (payload?.notice) {
               setPolicyListNotice(payload.notice);
             }
+            setDraftForEditor(null);
             setScreen('policy-list');
           }}
         />
@@ -157,7 +161,9 @@ export default function App() {
       {screen === 'cases' && <CasesScreen />}
       {screen === 'what-if' && (
         <WhatIfSimulatorScreen
-          onOpenPolicyEditor={(draft) => {
+          onOpenPolicyEditor={(draft, policyCode) => {
+            setSelectedPolicyVersion(null);
+            setSelectedPolicyCode(policyCode || null);
             setDraftForEditor(draft);
             setScreen('policy-editor');
           }}
