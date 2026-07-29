@@ -33,6 +33,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [overrideError, setOverrideError] = useState(null);
   const [overrideForm, setOverrideForm] = useState({
     newOutcome: '',
+    grantedLimit: '',
     reason: '',
     operator: '',
   });
@@ -82,13 +83,14 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   }
 
   const workings = caseData?.workings;
-  const decisionReason = workings?.decisionReason;
+  const decisionReason = workings?.machineDecisionReason;
   const isReferredCase = caseData?.outcome === 'REFERRED';
   const isRejectedCase = caseData?.outcome === 'REJECTED';
   const canTakeAction = isRejectedCase || isReferredCase;
   const actionButtonLabel = isReferredCase ? 'Review referred case...' : 'Override rejected case...';
   const actionButtonVariant = isReferredCase ? 'primary' : 'danger';
   const overrideModalTitle = isReferredCase ? 'Review referred case' : 'Override rejected case';
+  const hasManualDecision = Boolean(caseData?.decidedBy || caseData?.decideDecision);
 
   // Split multi-reason string (reasons joined by '-', e.g. "CRE_APPROVED-CRE_LIMIT_CAPPED_TO_REQUEST")
   const reasonCodes = decisionReason ? decisionReason.split('-') : [];
@@ -136,30 +138,21 @@ export default function CaseDetailScreen({ caseId, onClose }) {
     setOverrideError(null);
     setOverrideForm({
       newOutcome: '',
+      grantedLimit: '',
       reason: '',
       operator: '',
     });
     setOverrideOpen(true);
   };
 
-  const capToThreeWayMinimum = () => {
-    if (!workings) return null;
-    const { incomeBasisLimit, requestedLimit, productMaxLimit } = workings;
-    if (
-      incomeBasisLimit == null ||
-      requestedLimit == null ||
-      productMaxLimit == null
-    ) {
-      return null;
-    }
-    return Math.min(incomeBasisLimit, requestedLimit, productMaxLimit);
-  };
-
   const submitOverride = async (event) => {
     event.preventDefault();
     const newOutcome = overrideForm.newOutcome.trim();
+    const requiresGrantedLimit = newOutcome === 'ACCEPTED';
+    const grantedLimitRaw = overrideForm.grantedLimit.trim();
     const reason = overrideForm.reason.trim();
     const operator = overrideForm.operator.trim();
+    let grantedLimit = null;
 
     if (!newOutcome) {
       setOverrideError('Please select a new outcome.');
@@ -169,6 +162,25 @@ export default function CaseDetailScreen({ caseId, onClose }) {
     if (!reason || !operator) {
       setOverrideError('Reason and operator are required.');
       return;
+    }
+
+    if (requiresGrantedLimit) {
+      if (!grantedLimitRaw) {
+        setOverrideError('Grant limit is required when outcome is ACCEPTED.');
+        return;
+      }
+
+      grantedLimit = Number.parseInt(grantedLimitRaw, 10);
+      if (!Number.isInteger(grantedLimit) || grantedLimit <= 0) {
+        setOverrideError('Grant limit must be a positive whole number.');
+        return;
+      }
+
+      const productMaxLimit = workings?.productMaxLimit;
+      if (productMaxLimit != null && grantedLimit >= productMaxLimit) {
+        setOverrideError(`Grant limit must be less than product max limit (£${productMaxLimit.toLocaleString()}).`);
+        return;
+      }
     }
 
     setOverrideSubmitting(true);
@@ -183,6 +195,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           decision: newOutcome === 'ACCEPTED' ? 'ACCEPTED' : 'REJECTED',
           reason,
           operator,
+          ...(requiresGrantedLimit ? { grantedLimit } : {}),
         };
         await api.decideReferredCase(caseId, payload);
       } else if (isRejected) {
@@ -191,16 +204,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           newOutcome: newOutcome === 'ACCEPTED' ? 'APPROVED' : 'REFERRED',
           reason,
           operator,
+          ...(requiresGrantedLimit ? { grantedLimit } : {}),
         };
-        if (newOutcome === 'ACCEPTED') {
-          const fallbackLimit = workings?.grantedLimit ?? capToThreeWayMinimum();
-          if (fallbackLimit == null) {
-            setOverrideError('This case has no stored limit basis for APPROVED override.');
-            setOverrideSubmitting(false);
-            return;
-          }
-          payload.grantedLimit = fallbackLimit;
-        }
         await api.overrideCase(caseId, payload);
       } else {
         setOverrideError('Can only act on REFERRED or REJECTED cases.');
@@ -235,8 +240,13 @@ export default function CaseDetailScreen({ caseId, onClose }) {
         {/* Left: Decision Checks */}
         <div>
           {/* Outcome badge */}
-          <div style={{ marginBottom: 'var(--ds-space-4)' }}>
+          <div style={{ marginBottom: 'var(--ds-space-4)', display: 'flex', alignItems: 'center', gap: 'var(--ds-space-3)', flexWrap: 'wrap' }}>
             <Badge tone={statusTone(caseData?.outcome)}>{caseData?.outcome}</Badge>
+            {hasManualDecision && (
+              <div style={{ fontSize: '0.875rem', color: 'var(--ds-text-secondary)' }}>
+                decided by {caseData?.decidedBy ?? '—'} · {caseData?.decideDecision ?? '—'}
+              </div>
+            )}
           </div>
 
           {/* Check / Step 1: Income Check */}
@@ -453,9 +463,14 @@ export default function CaseDetailScreen({ caseId, onClose }) {
               <Select
                 id={id}
                 value={overrideForm.newOutcome}
-                onChange={(event) =>
-                  setOverrideForm((prev) => ({ ...prev, newOutcome: event.target.value }))
-                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setOverrideForm((prev) => ({
+                    ...prev,
+                    newOutcome: value,
+                    grantedLimit: value === 'ACCEPTED' ? prev.grantedLimit : '',
+                  }));
+                }}
               >
                 <option value="">— Select —</option>
                 <option value="ACCEPTED">ACCEPTED</option>
@@ -467,6 +482,28 @@ export default function CaseDetailScreen({ caseId, onClose }) {
               </Select>
             )}
           </Field>
+
+          {overrideForm.newOutcome === 'ACCEPTED' && (
+            <Field
+              label="Grant limit"
+              required
+              hint={workings?.productMaxLimit != null ? `Must be less than £${workings.productMaxLimit.toLocaleString()}.` : undefined}
+              style={{ marginTop: 'var(--ds-space-3)' }}
+            >
+              {({ id }) => (
+                <TextInput
+                  id={id}
+                  type="number"
+                  min={1}
+                  value={overrideForm.grantedLimit}
+                  onChange={(event) =>
+                    setOverrideForm((prev) => ({ ...prev, grantedLimit: event.target.value }))
+                  }
+                  placeholder="e.g. 2800"
+                />
+              )}
+            </Field>
+          )}
 
           <Field
             label="Reason"
