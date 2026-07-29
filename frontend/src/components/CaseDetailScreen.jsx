@@ -15,6 +15,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [caseError, setCaseError] = useState(null);
   const [applicantError, setApplicantError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -46,6 +48,22 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
     loadData();
   }, [caseId]);
+
+  const handleStatusUpdate = async (status) => {
+    setUpdating(true);
+    setUpdateError(null);
+    try {
+      await api.updateCaseStatus(caseId, status);
+      // Update local state to reflect the change
+      setCaseData(prev => ({ ...prev, outcome: status }));
+      // Close the detail screen after successful update
+      onClose();
+    } catch (error) {
+      setUpdateError(error.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -158,6 +176,12 @@ export default function CaseDetailScreen({ caseId, onClose }) {
               </Alert>
             )}
 
+            {updateError && (
+              <Alert tone="negative" title="Could not update status">
+                {updateError}
+              </Alert>
+            )}
+
             {applicant && (
               <div style={{ fontSize: '0.875rem' }}>
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
@@ -214,11 +238,30 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     marginTop: 'var(--ds-space-4)',
                     paddingTop: 'var(--ds-space-3)',
                     borderTop: '1px solid var(--ds-border)',
-                    fontSize: '0.75rem',
-                    color: 'var(--ds-text-secondary)',
                   }}
                 >
-                  fetched on open — never stored
+                  <div style={{ fontSize: '0.75rem', color: 'var(--ds-text-secondary)', marginBottom: 'var(--ds-space-3)' }}>
+                    fetched on open — never stored
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 'var(--ds-space-2)' }}>
+                    <Button
+                      variant="primary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusUpdate('ACCEPTED')}
+                      disabled={updating}
+                    >
+                      {updating ? 'Updating…' : 'Accept'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusUpdate('REJECTED')}
+                      disabled={updating}
+                    >
+                      {updating ? 'Updating…' : 'Decline'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
