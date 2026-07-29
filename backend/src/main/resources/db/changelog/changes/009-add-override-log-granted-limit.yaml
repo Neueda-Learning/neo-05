@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-override-log-granted-limit
+      author: neo-05
+      comment: Store the manually granted limit alongside override decisions when present.
+      changes:
+        - addColumn:
+            tableName: override_log
+            columns:
+              - column:
+                  name: granted_limit
+                  type: INT
+      rollback:
+        - dropColumn:
+            tableName: override_log
+            columnName: granted_limit

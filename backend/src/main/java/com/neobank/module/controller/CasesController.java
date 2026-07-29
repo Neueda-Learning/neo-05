@@ -2,10 +2,15 @@ package com.neobank.module.controller;
 
 import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
+import com.neobank.module.dto.OverrideCaseRequest;
+import jakarta.validation.Valid;
 import com.neobank.module.service.ApplicationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,5 +46,11 @@ public class CasesController {
     @GetMapping("/{applicationId}/applicant")
     public ResponseEntity<ApplicantViewDto> getApplicant(@PathVariable String applicationId) {
         return ResponseEntity.ok(applications.getApplicant(applicationId));
+    }
+
+    @PostMapping("/{applicationId}/override")
+    public ResponseEntity<CaseView> overrideCase(@PathVariable String applicationId,
+                                                 @Valid @RequestBody OverrideCaseRequest request) {
+        return ResponseEntity.status(HttpStatus.OK).body(applications.overrideCase(applicationId, request));
     }
 }

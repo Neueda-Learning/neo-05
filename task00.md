@@ -1,40 +1,44 @@
-# Module 5 · Credit Decisioning — UC 03 · View Applicant
+# Module 5 · Credit Decisioning — UC 08 · Override Case
 
 > AI implementation brief, generated from the v5 spec (`spec/.../use-cases/`). Source of truth is the spec; regenerate, don't hand-edit.
 
 ## Context
 
 - Module: 5 · Credit Decisioning · category Rule · domain `credit` · command `assess-credit` · outcomes: APPROVED, REFERRED, DECLINED
-- Use case: 03 · View Applicant · track D · prerequisite: screen shell from 02 · build shape: API+FE · primary screen: Decision Workings sidebar
-- Data effect: none — by design
+- Use case: 08 · Override Case · track B · prerequisite: after 02 is wired · build shape: DB-write→API→FE · primary screen: Override modal
+- Data effect: two writes + one callback
 - Platform rules (non-negotiable): the orchestrator is the only caller; the whole application arrives in the envelope (plus the v5 `outputs` block, Option A); steps are independent and re-orderable; the payload is NEVER stored — only `applicationId`; every module ships `GET /cases/{id}/applicant` proxying the orchestrator; big lists are empty by default and capped at 10 rows (≤10 hydration calls); ALL APIs are idempotent — same request twice, same result once; every endpoint appears in the service's OpenAPI 3.0 (Swagger) spec.
 
 ## Story
 
-As a bank employee I want to see who a credit decision is about without leaving the record — and without this module ever copying applicant data.
+As a bank employee I want to override a wrong credit decision with a reason — a decline built on a mistyped income the customer has since evidenced, an approval that new information contradicts.
 
 ## Contract
 
 ```
-GET /cases/{id}/applicant →  (proxy)
-GET {orchestratorUrl}/api/v1/
-        applications/{applicationId}
-→ { …whole Application object… }
+POST /cases/{id}/override
+{"newOutcome":"APPROVED","grantedLimit":2800,
+ "reason":"income evidenced at 34k — decline was on a typo",
+ "operator":"b.dimovski"}
+→ 200 + updated case
 ```
 
 ## Acceptance criteria
 
-1. The Decision Workings sidebar renders fullName, dateOfBirth, employment.status, finances (annualIncome, monthlyHousingCost, existingCreditCommitments) and product.requestedCreditLimit — fetched live.
-2. For app-1301 the sidebar shows Daniel Osei · PERMANENT · £48,000 — the lender reads the person beside the DTI that referred him.  ⟵ **checkpoint — exact value**
-3. Nothing from the response is persisted — restart the module, the sidebar still works, the schema still holds zero applicant-identifying columns.
-4. Orchestrator unreachable → the sidebar shows a retryable error state; the workings panel still renders every stored number from local data.
-5. The proxy passes applicationId through untouched — no id mapping tables.
+1. POST /cases/{id}/override {newOutcome, reason, operator} → 200; the case's outcome updates immediately.
+2. reason and operator are mandatory → 400 without either; newOutcome must be APPROVED, REFERRED or DECLINED; APPROVED additionally requires grantedLimit ≤ the stored three-way minimum → 422 above it.
+3. An override_log row is written: applicationId, old outcome, new outcome, granted limit (when set), reason, operator, timestamp.
+4. The module POSTs a fresh callback with status local-manual and CRE_MANUAL_APPROVED (detail carries limit + APR) or CRE_MANUAL_DECLINED.
+5. Overriding a DECLINED case to APPROVED at £2,800 shows the new outcome and limit on the board, and the override in the case history.  ⟵ **checkpoint — exact value**
+6. The original workings and machineOutcome stay untouched — the record shows what the machine computed AND what the human decided.
+7. Overriding to REFERRED puts the case into the referred queue, unclaimed.
 
 ## Expected data changes
 
-- **Zero writes, zero copies.** The whole point: one copy of the truth, owned by the orchestrator.
-- MySQL is not even touched on this path.
-- If the orchestrator is down the module stays healthy — the workings are local, only the sidebar degrades.
+- **UPDATE credit_record** SET outcome (+ granted_limit on approval) — nothing else may ever change here.
+- **INSERT override_log** (old, new, limit, reason, operator, at).
+- Callback status local-manual tells the orchestrator a human decided — the journey resumes.
+- Workings columns + machineOutcome untouched: the arithmetic is preserved forever.
 
 ## Diagrams
 
@@ -42,7 +46,7 @@ GET {orchestratorUrl}/api/v1/
 
 ### Sequence — this use case
 
-![Sequence — this use case](diagrams/uc-03-sequence.jpg)
+![Sequence — this use case](diagrams/uc-08-sequence.jpg)
 
 <details><summary>mermaid source</summary>
 
@@ -52,13 +56,14 @@ sequenceDiagram
     participant UI
     participant Controller
     participant Service
+    participant MySQL
     participant Orchestrator
-    UI->>Controller: GET /cases/app-1301/applicant
-    Controller->>Service: getApplicant(applicationId)
-    Service->>Orchestrator: GET /api/v1/applications/app-1301
-    Orchestrator-->>Service: 200 — whole Application
-    Service-->>Controller: ApplicantViewDto (subset)
-    Controller-->>UI: 200 OK — sidebar payload
+    UI->>Controller: POST /cases/{id}/override {…}
+    Controller->>Service: override(id, cmd)
+    Service->>MySQL: UPDATE outcome + INSERT override_log
+    MySQL-->>Service: ok
+    Service->>Orchestrator: POST /callbacks — local-manual + new outcome
+    Controller-->>UI: 200 OK — updated case
 ```
 
 </details>
@@ -175,15 +180,15 @@ stateDiagram-v2
 
 ## Out of scope
 
-Caching applicant data; storing any applicant field in this module's schema (the workings columns store this module's arithmetic — nothing identifying).
+Deleting or editing any other field of the record; overriding a case that does not exist (404). Working the referred queue — that is UC 04, with its claim discipline.
 
 ## Build notes
 
-THE standard application-fetch GET every module ships (v5 platform rule) — the same proxy hydrates the board's name column (UC 01) and the queue's rows (UC 04). It goes to the orchestrator only, server-side, so the browser needs no CORS exception. The sidebar shows the declared finances beside the stored workings — the lender sees input and arithmetic together.
+The ONE permitted mutation outside the queue path. Writes the shared override_log and re-notifies the orchestrator with callback status local-manual and CRE_MANUAL_APPROVED (detail: limit + APR) or CRE_MANUAL_DECLINED. Overriding TO APPROVED requires a grantedLimit — same ceiling as the queue: never above the stored three-way arithmetic. Overriding to REFERRED sends the case into the queue, unclaimed.
 
 ## Tests
 
-Service test with a mocked orchestrator client: happy path + orchestrator down → sidebar error, workings still render.
+Slice test: happy path, missing reason → 400, unknown id → 404, approve above the machine basis → 422; service test asserts the callback fires once.
 
 ## Definition of done
 

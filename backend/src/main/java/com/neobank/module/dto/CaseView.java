@@ -1,7 +1,10 @@
 package com.neobank.module.dto;
 
 import com.neobank.module.model.CreditRecord;
+import com.neobank.module.model.OverrideLog;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 
 /**
  * The read model for GET /cases/{applicationId} — every number behind the decision,
@@ -13,7 +16,17 @@ public record CaseView(
         String reference,
         int creditConfigVersion,
         WorkingsView workings,
-        SamplingView sampling) {
+                SamplingView sampling,
+                List<OverrideView> overrides) {
+
+        public CaseView(String outcome,
+                                        String machineOutcome,
+                                        String reference,
+                                        int creditConfigVersion,
+                                        WorkingsView workings,
+                                        SamplingView sampling) {
+                this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, List.of());
+        }
 
     public record WorkingsView(
             int annualIncome,
@@ -33,31 +46,36 @@ public record CaseView(
 
     public record SamplingView(boolean sampled) {}
 
-    public static CaseView of(CreditRecord row, BigDecimal dtiLimit) {
-        return new CaseView(
-                row.getOutcome(),
-                row.getMachineOutcome(),
-                row.getReference(),
-                row.getCreditConfigVersion(),
-                new WorkingsView(
-                        row.getAnnualIncome(),
-                        row.getMonthlyIncome(),
-                        row.getMonthlyOutgoings(),
-                        row.getDti(),
-                        dtiLimit,
-                        row.getIncomeBasisLimit(),
-                        row.getProductMaxLimit(),
-                        row.getRequestedLimit(),
-                        row.getGrantedLimit(),
-                        row.getApr(),
-                        row.getCapReason(),
-                        row.getDecisionReason(),
-                        row.getProductCode(),
-                        null),
-                new SamplingView(row.isSampled()));
-    }
+        public record OverrideView(
+                        String oldOutcome,
+                        String newOutcome,
+                        Integer grantedLimit,
+                        String reason,
+                        String operator,
+                        Instant overriddenAt) {
+                public static OverrideView of(OverrideLog row) {
+                        return new OverrideView(
+                                        row.getOldOutcome(),
+                                        row.getNewOutcome(),
+                                        row.getGrantedLimit(),
+                                        row.getReason(),
+                                        row.getOperator(),
+                                        row.getOverriddenAt());
+                }
+        }
 
-    public static CaseView of(CreditRecord row, BigDecimal dtiLimit, Integer minIncome) {
+    public static CaseView of(CreditRecord row, BigDecimal dtiLimit) {
+                return of(row, dtiLimit, null, List.of());
+        }
+
+        public static CaseView of(CreditRecord row, BigDecimal dtiLimit, Integer minIncome) {
+                return of(row, dtiLimit, minIncome, List.of());
+        }
+
+        public static CaseView of(CreditRecord row,
+                                                          BigDecimal dtiLimit,
+                                                          Integer minIncome,
+                                                          List<OverrideView> overrides) {
         return new CaseView(
                 row.getOutcome(),
                 row.getMachineOutcome(),
@@ -78,6 +96,7 @@ public record CaseView(
                         row.getDecisionReason(),
                         row.getProductCode(),
                         minIncome),
-                new SamplingView(row.isSampled()));
+                new SamplingView(row.isSampled()),
+                overrides == null ? List.of() : List.copyOf(overrides));
     }
 }

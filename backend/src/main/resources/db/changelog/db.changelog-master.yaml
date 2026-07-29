@@ -22,3 +22,5 @@ databaseChangeLog:
       file: db/changelog/changes/008-allow-in-progress-credit-record.yaml
   - include:
       file: db/changelog/changes/008-align-seeded-credit-config-values.yaml
+  - include:
+      file: db/changelog/changes/009-add-override-log-granted-limit.yaml

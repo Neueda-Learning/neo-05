@@ -15,10 +15,14 @@ import com.neobank.module.integrations.orchestrator.OrchestratorClient;
 import com.neobank.module.model.CreditConfig;
 import com.neobank.module.model.CreditRecord;
 import com.neobank.module.model.Decision;
+import com.neobank.module.model.OverrideLog;
 import com.neobank.module.repository.CreditConfigRepository;
 import com.neobank.module.repository.CreditRecordRepository;
+import com.neobank.module.repository.OverrideLogRepository;
+import com.neobank.module.dto.OverrideCaseRequest;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +40,7 @@ class ApplicationServiceTest {
 
     private CreditRecordRepository creditRecords;
     private CreditConfigRepository creditConfigs;
+        private OverrideLogRepository overrideLogs;
     private OrchestratorClient orchestrator;
     private CreditRecordAcceptanceService acceptance;
     private ApplicationService service;
@@ -44,13 +49,28 @@ class ApplicationServiceTest {
     void setUp() {
         creditRecords = mock(CreditRecordRepository.class);
         creditConfigs = mock(CreditConfigRepository.class);
+        overrideLogs = mock(OverrideLogRepository.class);
         orchestrator = mock(OrchestratorClient.class);
         acceptance = mock(CreditRecordAcceptanceService.class);
         // Runnable::run — the work happens inline, so there is nothing to wait for.
-        service = new ApplicationService(Runnable::run, acceptance, creditRecords, creditConfigs, orchestrator);
+        service = new ApplicationService(
+                Runnable::run, acceptance, creditRecords, creditConfigs, overrideLogs, orchestrator);
         when(creditRecords.save(any(CreditRecord.class))).thenAnswer(call -> call.getArgument(0));
+        when(overrideLogs.save(any(OverrideLog.class))).thenAnswer(call -> call.getArgument(0));
+        when(overrideLogs.findByApplicationIdOrderByOverriddenAtDescIdDesc(any()))
+                .thenReturn(List.of());
+        when(overrideLogs.findFirstByApplicationIdOrderByOverriddenAtDescIdDesc(any()))
+                .thenReturn(Optional.empty());
         when(creditRecords.findById(any())).thenReturn(Optional.empty());
         when(creditConfigs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(any(Instant.class)))
+                .thenReturn(Optional.of(CreditConfig.of(
+                        1,
+                        "{\"REWARDS\":{\"minIncome\":18000,\"maxLimit\":5000,\"apr\":12.9}}",
+                        BigDecimal.valueOf(0.45),
+                        BigDecimal.valueOf(100),
+                        7,
+                        Instant.now().minusSeconds(24 * 60 * 60))));
+        when(creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(1))
                 .thenReturn(Optional.of(CreditConfig.of(
                         1,
                         "{\"REWARDS\":{\"minIncome\":18000,\"maxLimit\":5000,\"apr\":12.9}}",
@@ -294,4 +314,47 @@ class ApplicationServiceTest {
         verify(orchestrator).applicationStatusUpdate("SIM-MAX", Decision.ACCEPTED,
                 "CRE_LIMIT_CAPPED_TO_BAND_MAX");
     }
+
+        @Test
+        void manualOverrideWritesAuditAndReportsOnce() {
+                CreditRecord decided = decidedCase("SIM-OVERRIDE", CreditRecord.STATUS_REJECTED, null);
+                when(creditRecords.findById("SIM-OVERRIDE")).thenReturn(Optional.of(decided));
+
+                OverrideCaseRequest request = new OverrideCaseRequest(
+                                "APPROVED", 2800, "income evidenced at 34k", "b.dimovski");
+
+                service.overrideCase("SIM-OVERRIDE", request);
+                service.overrideCase("SIM-OVERRIDE", request);
+
+                ArgumentCaptor<OverrideLog> savedLog = ArgumentCaptor.forClass(OverrideLog.class);
+                verify(overrideLogs).save(savedLog.capture());
+                assertThat(savedLog.getValue().getApplicationId()).isEqualTo("SIM-OVERRIDE");
+                assertThat(savedLog.getValue().getOldOutcome()).isEqualTo(CreditRecord.STATUS_REJECTED);
+                assertThat(savedLog.getValue().getNewOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+                assertThat(savedLog.getValue().getGrantedLimit()).isEqualTo(2800);
+                verify(orchestrator).applicationStatusUpdate(
+                                "SIM-OVERRIDE",
+                                Decision.ACCEPTED,
+                                "local-manual CRE_MANUAL_APPROVED limit=2800 apr=12.9 reason=income evidenced at 34k");
+        }
+
+        private CreditRecord decidedCase(String applicationId, String outcome, Integer grantedLimit) {
+                CreditRecord row = CreditRecord.inProgress(applicationId);
+                row.applyScoring(
+                                1,
+                                null,
+                                "REWARDS",
+                                34000,
+                                2833,
+                                1180,
+                                new BigDecimal("0.42"),
+                                2833,
+                                3000,
+                                5000,
+                                grantedLimit,
+                                new BigDecimal("12.9"),
+                                null);
+                row.markFinal(outcome, "machine decision");
+                return row;
+        }
 }

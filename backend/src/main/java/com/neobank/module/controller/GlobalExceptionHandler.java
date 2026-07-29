@@ -1,6 +1,7 @@
 package com.neobank.module.controller;
 
 import com.neobank.module.service.ApplicantUnavailableException;
+import com.neobank.module.service.UnprocessableCaseOverrideException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -65,6 +66,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(UnprocessableCaseOverrideException.class)
+    public ResponseEntity<Map<String, Object>> handleUnprocessableOverride(
+            UnprocessableCaseOverrideException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     /**

@@ -72,6 +72,18 @@ public class CreditRecord {
     @Column(name = "sampled", nullable = false, columnDefinition = "TINYINT")
     private boolean sampled;
 
+    @Column(name = "sample_position")
+    private Integer samplePosition;
+
+    @Column(name = "claimed_by", length = 128)
+    private String claimedBy;
+
+    @Column(name = "claimed_at")
+    private Instant claimedAt;
+
+    @Column(name = "decided_by", length = 128)
+    private String decidedBy;
+
     @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
 
@@ -115,6 +127,24 @@ public class CreditRecord {
         this.outcome = status;
         this.machineOutcome = status;
         this.decisionReason = reason;
+        this.decidedAt = Instant.now();
+        this.decidedBy = null;
+    }
+
+    public void applyManualOverride(String status,
+                                    Integer grantedLimit,
+                                    String reason,
+                                    String operator) {
+        this.outcome = status;
+        if (STATUS_ACCEPTED.equals(status)) {
+            this.grantedLimit = grantedLimit;
+        }
+        if (STATUS_REFERRED.equals(status)) {
+            this.claimedBy = null;
+            this.claimedAt = null;
+        }
+        this.decisionReason = reason;
+        this.decidedBy = operator;
         this.decidedAt = Instant.now();
     }
 
@@ -212,8 +242,25 @@ public class CreditRecord {
     public java.math.BigDecimal getApr() {
         return apr;
     }
+
     public boolean isSampled() {
         return sampled;
+    }
+
+    public Integer getSamplePosition() {
+        return samplePosition;
+    }
+
+    public String getClaimedBy() {
+        return claimedBy;
+    }
+
+    public Instant getClaimedAt() {
+        return claimedAt;
+    }
+
+    public String getDecidedBy() {
+        return decidedBy;
     }
 
     public String getCapReason() {
