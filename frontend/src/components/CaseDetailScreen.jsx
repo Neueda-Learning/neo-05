@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -86,6 +86,11 @@ export default function CaseDetailScreen({ caseId, onClose }) {
     }
   };
 
+  const closeOverride = useCallback(() => {
+    if (overrideSubmitting) return;
+    setOverrideOpen(false);
+  }, [overrideSubmitting]);
+
   if (loading) {
     return (
       <div style={{ padding: 'var(--ds-space-6)', textAlign: 'center' }}>
@@ -149,11 +154,6 @@ export default function CaseDetailScreen({ caseId, onClose }) {
       operator: '',
     });
     setOverrideOpen(true);
-  };
-
-  const closeOverride = () => {
-    if (overrideSubmitting) return;
-    setOverrideOpen(false);
   };
 
   const capToThreeWayMinimum = () => {
