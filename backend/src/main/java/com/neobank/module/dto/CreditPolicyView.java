@@ -34,9 +34,9 @@ public record CreditPolicyView(
         Instant effectiveFrom) {
 
     private static final Map<String, String> POLICY_CODE_TO_NAME = Map.of(
-            "CREDIT_CARD_REWARDS", "PLATINUM",
-            "CREDIT_CARD_STANDARD", "PREMIUM",
-            "CREDIT_CARD_LOW_RATE", "PREMIUM",
+            "CREDIT_CARD_REWARDS", "PREMIUM",
+            "CREDIT_CARD_STANDARD", "PLATINUM",
+            "CREDIT_CARD_LOW_RATE", "PLATINUM",
             "CREDIT_CARD_STUDENT", "STUDENT",
             "PLATINUM", "PLATINUM",
             "PREMIUM", "PREMIUM",

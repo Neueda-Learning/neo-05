@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, EmptyState } from '../design-system';
 import { fetchApi } from '../api.js';
+import { displayProductName } from '../productDisplay.js';
 import '../styles.css';
 
 const POLICY_TO_PRODUCT_CODE = {
-  PLATINUM: 'CREDIT_CARD_REWARDS',
-  PREMIUM: 'CREDIT_CARD_LOW_RATE',
+  PLATINUM: 'CREDIT_CARD_LOW_RATE',
+  PREMIUM: 'CREDIT_CARD_REWARDS',
   STUDENT: 'CREDIT_CARD_STUDENT',
 };
 
-// What-if's draft uses CREDIT_CARD_STANDARD/REWARDS/STUDENT; this editor's own
-// product_terms use CREDIT_CARD_LOW_RATE for the same "premium" tier — map on the way in.
+// What-if uses internal PREMIUM/PLATINUM names; the policy API stores the
+// corresponding upstream catalogue codes, so map them at the boundary.
 function mapDraftProductCode(rawCode) {
   const code = String(rawCode || '').toUpperCase();
-  if (code.includes('STANDARD') || code.includes('PREMIUM') || code.includes('LOW_RATE')) {
-    return 'CREDIT_CARD_LOW_RATE';
-  }
-  if (code.includes('REWARDS') || code.includes('PLATINUM')) {
+  if (code.includes('REWARDS') || code.includes('PREMIUM')) {
     return 'CREDIT_CARD_REWARDS';
+  }
+  if (code.includes('STANDARD') || code.includes('PLATINUM') || code.includes('LOW_RATE')) {
+    return 'CREDIT_CARD_LOW_RATE';
   }
   if (code.includes('STUDENT')) {
     return 'CREDIT_CARD_STUDENT';
@@ -330,7 +331,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
 
         {selectedProductCode && (
           <p className="subtitle" style={{ marginBottom: '0.75rem' }}>
-            Showing {selectedProductCode} for this policy stream. Other product terms are preserved unchanged.
+            Showing {displayProductName(selectedProductCode)} for this policy stream. Other product terms are preserved unchanged.
           </p>
         )}
 
@@ -341,7 +342,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
                   <td>Policy Configuration</td>
                   <td>v{policy.version}</td>
                   <td>Policy Code</td>
-                  <td>{rememberedPolicyCode || '-'}</td>
+                  <td>{displayProductName(rememberedPolicyCode)}</td>
                 </tr>
                 <tr>
                   <td>DTI Limit <span className="required">*</span> <span className="help-text">(0 &lt; value &lt; 1)</span></td>
@@ -426,7 +427,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
                 </tr>
                 {!selectedProductCode && visibleProductTerms.slice(1).flatMap((term) => ([
                   <tr key={`${term.productCode}-row1`}>
-                    <td>{term.productCode} Min Income <span className="required">*</span> <span className="help-text">(≥ 0)</span></td>
+                    <td>{displayProductName(term.productCode)} Min Income <span className="required">*</span> <span className="help-text">(≥ 0)</span></td>
                     <td>
                       <input
                         type="number"
@@ -437,7 +438,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
                         required
                       />
                     </td>
-                    <td>{term.productCode} Max Limit <span className="required">*</span> <span className="help-text">(&gt; 0)</span></td>
+                    <td>{displayProductName(term.productCode)} Max Limit <span className="required">*</span> <span className="help-text">(&gt; 0)</span></td>
                     <td>
                       <input
                         type="number"
@@ -450,7 +451,7 @@ export default function PolicyEditorScreen({ selectedVersion, selectedPolicyCode
                     </td>
                   </tr>,
                   <tr key={`${term.productCode}-row2`}>
-                    <td>{term.productCode} APR % <span className="required">*</span> <span className="help-text">(one decimal)</span></td>
+                    <td>{displayProductName(term.productCode)} APR % <span className="required">*</span> <span className="help-text">(one decimal)</span></td>
                     <td>
                       <input
                         type="number"

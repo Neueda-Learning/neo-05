@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-swap-premium-platinum-product-mapping
+      author: neo05
+      changes:
+        - sql:
+            sql: |
+              UPDATE credit_config
+              SET product_code = CASE
+                  WHEN UPPER(product_terms) = 'PREMIUM' THEN 'CREDIT_CARD_REWARDS'
+                  WHEN UPPER(product_terms) IN ('PLATINUM', 'PLATIUM') THEN 'CREDIT_CARD_STANDARD'
+                  ELSE product_code
+              END
+              WHERE min_income IS NULL
+                AND max_limit IS NULL
+                AND apr IS NULL
+                AND UPPER(product_terms) IN ('PREMIUM', 'PLATINUM', 'PLATIUM')
+      rollback:
+        - sql:
+            sql: |
+              UPDATE credit_config
+              SET product_code = CASE
+                  WHEN UPPER(product_terms) = 'PREMIUM' THEN 'CREDIT_CARD_STANDARD'
+                  WHEN UPPER(product_terms) IN ('PLATINUM', 'PLATIUM') THEN 'CREDIT_CARD_REWARDS'
+                  ELSE product_code
+              END
+              WHERE min_income IS NULL
+                AND max_limit IS NULL
+                AND apr IS NULL
+                AND UPPER(product_terms) IN ('PREMIUM', 'PLATINUM', 'PLATIUM')
