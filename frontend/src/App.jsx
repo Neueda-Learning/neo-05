@@ -121,12 +121,6 @@ export default function App() {
             error={error}
             info={info}
             onRowClick={setSelectedCase}
-            onOpenPolicyEditor={() => {
-              setSelectedPolicyVersion(null);
-              setSelectedPolicyCode(null);
-              setDraftForEditor(null);
-              setScreen('policy-editor');
-            }}
           />
         )
       )}

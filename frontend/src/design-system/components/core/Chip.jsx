@@ -26,9 +26,11 @@ export function ChipGroup({ options, value, onChange, counts, className, ...rest
       {options.map((option) => {
         const key = typeof option === 'string' ? option : option.value;
         const label = typeof option === 'string' ? option : option.label;
+        const chipClassName = typeof option === 'string' ? undefined : option.className;
         return (
           <Chip
             key={key}
+            className={chipClassName}
             active={value === key}
             count={counts?.[key]}
             onClick={() => onChange?.(key)}

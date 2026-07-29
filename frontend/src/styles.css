@@ -20,6 +20,24 @@
   padding: 0 var(--ds-space-2);
 }
 
+.applications-filter--positive[aria-pressed='true'] {
+  background: var(--ds-tone-positive-surface);
+  border-color: var(--ds-tone-positive-border);
+  color: var(--ds-tone-positive-text);
+}
+
+.applications-filter--negative[aria-pressed='true'] {
+  background: var(--ds-tone-negative-surface);
+  border-color: var(--ds-tone-negative-border);
+  color: var(--ds-tone-negative-text);
+}
+
+.applications-filter--warning[aria-pressed='true'] {
+  background: var(--ds-tone-warning-surface);
+  border-color: var(--ds-tone-warning-border);
+  color: var(--ds-tone-warning-text);
+}
+
 .policy-header-actions {
   display: flex;
   justify-content: flex-start;
