@@ -1,13 +1,14 @@
 package com.neobank.module.service.decision;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import com.neobank.module.model.Decision;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+
+import com.neobank.module.model.Decision;
 
 class CreditDecisionEngineTest {
 
@@ -155,7 +156,7 @@ class CreditDecisionEngineTest {
     @Test
     void unsupportedProductsAreNotSilentlyMappedToAnotherCard() {
         assertThatThrownBy(() -> evaluate(
-                "CREDIT_CARD_REWARDS", 34_000, 1_000, 180, 3_000))
+                "INVALID_PRODUCT_CODE", 34_000, 1_000, 180, 3_000))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported credit product");
     }
