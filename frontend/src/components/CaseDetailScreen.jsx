@@ -83,7 +83,12 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
   const workings = caseData?.workings;
   const decisionReason = workings?.decisionReason;
-  const canTakeAction = caseData?.outcome === 'REJECTED' || caseData?.outcome === 'REFERRED';
+  const isReferredCase = caseData?.outcome === 'REFERRED';
+  const isRejectedCase = caseData?.outcome === 'REJECTED';
+  const canTakeAction = isRejectedCase || isReferredCase;
+  const actionButtonLabel = isReferredCase ? 'Review referred case...' : 'Override rejected case...';
+  const actionButtonVariant = isReferredCase ? 'primary' : 'danger';
+  const overrideModalTitle = isReferredCase ? 'Review referred case' : 'Override rejected case';
 
   // Split multi-reason string (reasons joined by '-', e.g. "CRE_APPROVED-CRE_LIMIT_CAPPED_TO_REQUEST")
   const reasonCodes = decisionReason ? decisionReason.split('-') : [];
@@ -302,8 +307,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
           {canTakeAction && (
             <div style={{ marginTop: 'var(--ds-space-3)' }}>
-              <Button variant="primary" onClick={openOverride}>
-                Act on this record...
+              <Button variant={actionButtonVariant} onClick={openOverride}>
+                {actionButtonLabel}
               </Button>
             </div>
           )}
@@ -416,7 +421,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
       <Modal
         open={overrideOpen}
         onClose={closeOverride}
-        title="Act on this record"
+        title={overrideModalTitle}
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ds-space-2)' }}>
             <Button variant="secondary" onClick={closeOverride} disabled={overrideSubmitting}>
