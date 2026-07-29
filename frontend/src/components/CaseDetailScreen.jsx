@@ -28,13 +28,11 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [caseError, setCaseError] = useState(null);
   const [applicantError, setApplicantError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [updateError, setUpdateError] = useState(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideError, setOverrideError] = useState(null);
   const [overrideForm, setOverrideForm] = useState({
-    newOutcome: 'REFERRED',
+    newOutcome: '',
     reason: '',
     operator: '',
   });
@@ -70,22 +68,6 @@ export default function CaseDetailScreen({ caseId, onClose }) {
     loadData();
   }, [caseId]);
 
-  const handleStatusUpdate = async (status) => {
-    setUpdating(true);
-    setUpdateError(null);
-    try {
-      await api.updateCaseStatus(caseId, status);
-      // Update local state to reflect the change
-      setCaseData(prev => ({ ...prev, outcome: status }));
-      // Close the detail screen after successful update
-      onClose();
-    } catch (error) {
-      setUpdateError(error.message);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
   const closeOverride = useCallback(() => {
     if (overrideSubmitting) return;
     setOverrideOpen(false);
@@ -101,7 +83,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
   const workings = caseData?.workings;
   const decisionReason = workings?.decisionReason;
-  const canOverrideRejectedCase = caseData?.outcome === 'REJECTED';
+  const canTakeAction = caseData?.outcome === 'REJECTED' || caseData?.outcome === 'REFERRED';
 
   // Split multi-reason string (reasons joined by '-', e.g. "CRE_APPROVED-CRE_LIMIT_CAPPED_TO_REQUEST")
   const reasonCodes = decisionReason ? decisionReason.split('-') : [];
@@ -146,10 +128,9 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   };
 
   const openOverride = () => {
-    if (!canOverrideRejectedCase) return;
     setOverrideError(null);
     setOverrideForm({
-      newOutcome: 'REFERRED',
+      newOutcome: '',
       reason: '',
       operator: '',
     });
@@ -171,38 +152,63 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
   const submitOverride = async (event) => {
     event.preventDefault();
+    const newOutcome = overrideForm.newOutcome.trim();
     const reason = overrideForm.reason.trim();
     const operator = overrideForm.operator.trim();
+
+    if (!newOutcome) {
+      setOverrideError('Please select a new outcome.');
+      return;
+    }
 
     if (!reason || !operator) {
       setOverrideError('Reason and operator are required.');
       return;
     }
 
-    const payload = {
-      newOutcome: overrideForm.newOutcome,
-      reason,
-      operator,
-    };
-
-    if (overrideForm.newOutcome === 'APPROVED') {
-      // Backend requires grantedLimit for approved overrides.
-      const fallbackLimit = workings?.grantedLimit ?? capToThreeWayMinimum();
-      if (fallbackLimit == null) {
-        setOverrideError('This case has no stored limit basis for APPROVED override.');
-        return;
-      }
-      payload.grantedLimit = fallbackLimit;
-    }
-
     setOverrideSubmitting(true);
     setOverrideError(null);
     try {
-      const updated = await api.overrideCase(caseId, payload);
+      const isReferred = caseData?.outcome === 'REFERRED';
+      const isRejected = caseData?.outcome === 'REJECTED';
+
+      if (isReferred) {
+        // For REFERRED cases, use the decide-referred endpoint with ACCEPTED/REJECTED
+        const payload = {
+          decision: newOutcome === 'ACCEPTED' ? 'ACCEPTED' : 'REJECTED',
+          reason,
+          operator,
+        };
+        await api.decideReferredCase(caseId, payload);
+      } else if (isRejected) {
+        // For REJECTED cases, use the override endpoint with APPROVED/REFERRED
+        const payload = {
+          newOutcome: newOutcome === 'ACCEPTED' ? 'APPROVED' : 'REFERRED',
+          reason,
+          operator,
+        };
+        if (newOutcome === 'ACCEPTED') {
+          const fallbackLimit = workings?.grantedLimit ?? capToThreeWayMinimum();
+          if (fallbackLimit == null) {
+            setOverrideError('This case has no stored limit basis for APPROVED override.');
+            setOverrideSubmitting(false);
+            return;
+          }
+          payload.grantedLimit = fallbackLimit;
+        }
+        await api.overrideCase(caseId, payload);
+      } else {
+        setOverrideError('Can only act on REFERRED or REJECTED cases.');
+        setOverrideSubmitting(false);
+        return;
+      }
+
+      // Reload case data to reflect the updated outcome and checks
+      const updated = await api.getCase(caseId);
       setCaseData(updated);
       setOverrideOpen(false);
     } catch (error) {
-      setOverrideError(error.message || 'Failed to submit override.');
+      setOverrideError(error.message || 'Failed to submit decision.');
     } finally {
       setOverrideSubmitting(false);
     }
@@ -294,7 +300,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
             )}
           </Card>
 
-          {canOverrideRejectedCase && (
+          {canTakeAction && (
             <div style={{ marginTop: 'var(--ds-space-3)' }}>
               <Button variant="primary" onClick={openOverride}>
                 Act on this record...
@@ -321,12 +327,6 @@ export default function CaseDetailScreen({ caseId, onClose }) {
             {applicantError && (
               <Alert tone="negative" title="Could not load applicant">
                 {applicantError}
-              </Alert>
-            )}
-
-            {updateError && (
-              <Alert tone="negative" title="Could not update status">
-                {updateError}
               </Alert>
             )}
 
@@ -403,27 +403,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     borderTop: '1px solid var(--ds-border)',
                   }}
                 >
-                  <div style={{ fontSize: '0.75rem', color: 'var(--ds-text-secondary)', marginBottom: 'var(--ds-space-3)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--ds-text-secondary)' }}>
                     fetched on open — never stored
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 'var(--ds-space-2)' }}>
-                    <Button
-                      variant="primary"
-                      style={{ flex: 1 }}
-                      onClick={() => handleStatusUpdate('ACCEPTED')}
-                      disabled={updating}
-                    >
-                      {updating ? 'Updating…' : 'Accept'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      style={{ flex: 1 }}
-                      onClick={() => handleStatusUpdate('REJECTED')}
-                      disabled={updating}
-                    >
-                      {updating ? 'Updating…' : 'Decline'}
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -471,8 +452,13 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                   setOverrideForm((prev) => ({ ...prev, newOutcome: event.target.value }))
                 }
               >
-                <option value="APPROVED">APPROVED</option>
-                <option value="REFERRED">REFERRED</option>
+                <option value="">— Select —</option>
+                <option value="ACCEPTED">ACCEPTED</option>
+                {caseData?.outcome === 'REJECTED' ? (
+                  <option value="REFERRED">REFERRED</option>
+                ) : (
+                  <option value="DECLINE">DECLINE</option>
+                )}
               </Select>
             )}
           </Field>

@@ -67,7 +67,7 @@ export default function ReferredQueueScreen({ onViewDetails }) {
     <>
       <PageHeader
         title="Referred Applications"
-        lede="applications awaiting manual review · select to perform bulk actions"
+        lede="applications awaiting manual review · click details to take action"
       />
 
       {error && (

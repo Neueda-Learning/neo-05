@@ -1,21 +1,5 @@
 package com.neobank.module.service;
 
-import com.neobank.module.dto.ApplicantViewDto;
-import com.neobank.module.dto.CaseView;
-import com.neobank.module.dto.DemoShowcaseView;
-import com.neobank.module.dto.OverrideCaseRequest;
-import com.neobank.module.integrations.orchestrator.Application;
-import com.neobank.module.integrations.orchestrator.ApplicationRequest;
-import com.neobank.module.integrations.orchestrator.OrchestratorClient;
-import com.neobank.module.model.CreditConfig;
-import com.neobank.module.model.CreditRecord;
-import com.neobank.module.model.Decision;
-import com.neobank.module.model.OverrideLog;
-import com.neobank.module.repository.CreditConfigRepository;
-import com.neobank.module.repository.CreditRecordRepository;
-import com.neobank.module.repository.OverrideLogRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -34,18 +18,23 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
+import com.neobank.module.dto.OverrideCaseRequest;
+import com.neobank.module.dto.ReferredDecisionRequest;
 import com.neobank.module.integrations.orchestrator.Application;
 import com.neobank.module.integrations.orchestrator.ApplicationRequest;
 import com.neobank.module.integrations.orchestrator.OrchestratorClient;
 import com.neobank.module.model.CreditConfig;
 import com.neobank.module.model.CreditRecord;
 import com.neobank.module.model.Decision;
+import com.neobank.module.model.OverrideLog;
 import com.neobank.module.repository.CreditConfigRepository;
 import com.neobank.module.repository.CreditRecordRepository;
+import com.neobank.module.repository.OverrideLogRepository;
 
 /**
  * <h2>Your module's work happens here. This is the class you came here to write.</h2>
@@ -556,6 +545,49 @@ public class ApplicationService {
             callbackComment(row, command));
 
         return buildCaseView(row);
+        }
+
+        @Transactional
+        public CaseView decideReferredCase(String applicationId, ReferredDecisionRequest request) {
+            CreditRecord row = creditRecords.findById(applicationId)
+                .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+
+            // Validate that this is a REFERRED case
+            if (!CreditRecord.STATUS_REFERRED.equals(row.getOutcome())) {
+                throw new UnprocessableCaseOverrideException(
+                        "only REFERRED cases can be decided here; case status is " + row.getOutcome());
+            }
+
+            String normalizedDecision = request.decision() == null ? "" : request.decision().trim().toUpperCase();
+            String internalOutcome = switch (normalizedDecision) {
+                case "ACCEPTED" -> CreditRecord.STATUS_ACCEPTED;
+                case "REJECTED" -> CreditRecord.STATUS_REJECTED;
+                default -> throw new IllegalArgumentException(
+                        "decision must be one of ACCEPTED or REJECTED");
+            };
+
+            String oldOutcome = row.getOutcome();
+            row.applyManualOverride(
+                internalOutcome,
+                null,
+                request.reason(),
+                request.operator());
+            creditRecords.save(row);
+
+            overrideLogs.save(OverrideLog.of(
+                applicationId,
+                oldOutcome,
+                internalOutcome,
+                null,
+                request.reason(),
+                request.operator()));
+
+            orchestrator.applicationStatusUpdate(
+                applicationId,
+                asDecision(internalOutcome),
+                request.reason());
+
+            return buildCaseView(row);
         }
 
         private CaseView buildCaseView(CreditRecord row) {

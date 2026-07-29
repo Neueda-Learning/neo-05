@@ -1,10 +1,5 @@
 package com.neobank.module.controller;
 
-import com.neobank.module.dto.ApplicantViewDto;
-import com.neobank.module.dto.CaseView;
-import com.neobank.module.dto.OverrideCaseRequest;
-import jakarta.validation.Valid;
-import com.neobank.module.service.ApplicationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +13,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseStatusUpdateRequest;
 import com.neobank.module.dto.CaseView;
+import com.neobank.module.dto.OverrideCaseRequest;
+import com.neobank.module.dto.ReferredDecisionRequest;
 import com.neobank.module.service.ApplicationService;
+
+import jakarta.validation.Valid;
 
 /**
  * UC 02 — Review Decision Workings · UC 03 — View Applicant · UC 04 — Manual Review Override.
@@ -60,6 +59,16 @@ public class CasesController {
     public ResponseEntity<CaseView> overrideCase(@PathVariable String applicationId,
                                                  @Valid @RequestBody OverrideCaseRequest request) {
         return ResponseEntity.status(HttpStatus.OK).body(applications.overrideCase(applicationId, request));
+    }
+
+    /**
+     * Decide on a REFERRED application — accept or reject it.
+     * Only available for cases with REFERRED status.
+     */
+    @PostMapping("/{applicationId}/decide-referred")
+    public ResponseEntity<CaseView> decideReferredCase(@PathVariable String applicationId,
+                                                        @Valid @RequestBody ReferredDecisionRequest request) {
+        return ResponseEntity.status(HttpStatus.OK).body(applications.decideReferredCase(applicationId, request));
     }
   
     /**
