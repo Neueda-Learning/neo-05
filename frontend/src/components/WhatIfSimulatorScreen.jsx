@@ -205,6 +205,19 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
             This simulation saves nothing and triggers no callbacks
           </Alert>
 
+          <Section title="Product Terms" className="whatif-section-flush">
+            <Field label="Product Type" htmlFor="productType" className="whatif-product-type-field">
+              <Select
+                id="productType"
+                size="sm"
+                value={selectedProductIndex}
+                onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
+                disabled={simulating}
+                options={CATALOGUE.map((entry, index) => ({ value: index, label: entry.label }))}
+              />
+            </Field>
+          </Section>
+
           <Field
             label="DTI Limit"
             htmlFor="dtiLimit"
@@ -269,51 +282,38 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
             </Field>
           </FormGrid>
 
-          <Section title="Product Terms" className="whatif-section-divider">
-            <Field label="Product Type" htmlFor="productType" className="whatif-product-type-field">
-              <Select
-                id="productType"
-                size="sm"
-                value={selectedProductIndex}
-                onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
-                disabled={simulating}
-                options={CATALOGUE.map((entry, index) => ({ value: index, label: entry.label }))}
-              />
-            </Field>
-
-            {selectedTerm && (
-              <FormGrid cols={3}>
-                <Field label="Min Income">
-                  <TextInput
-                    size="sm"
-                    type="number"
-                    min="0"
-                    value={selectedTerm.minIncome}
-                    onChange={(e) => updateTerm(selectedProductIndex, 'minIncome', e.target.value)}
-                  />
-                </Field>
-                <Field label="Max Limit">
-                  <TextInput
-                    size="sm"
-                    type="number"
-                    min="1"
-                    value={selectedTerm.maxLimit}
-                    onChange={(e) => updateTerm(selectedProductIndex, 'maxLimit', e.target.value)}
-                  />
-                </Field>
-                <Field label="APR %">
-                  <TextInput
-                    size="sm"
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    value={selectedTerm.apr}
-                    onChange={(e) => updateTerm(selectedProductIndex, 'apr', e.target.value)}
-                  />
-                </Field>
-              </FormGrid>
-            )}
-          </Section>
+          {selectedTerm && (
+            <FormGrid cols={3}>
+              <Field label="Min Income">
+                <TextInput
+                  size="sm"
+                  type="number"
+                  min="0"
+                  value={selectedTerm.minIncome}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'minIncome', e.target.value)}
+                />
+              </Field>
+              <Field label="Max Limit">
+                <TextInput
+                  size="sm"
+                  type="number"
+                  min="1"
+                  value={selectedTerm.maxLimit}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'maxLimit', e.target.value)}
+                />
+              </Field>
+              <Field label="APR %">
+                <TextInput
+                  size="sm"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={selectedTerm.apr}
+                  onChange={(e) => updateTerm(selectedProductIndex, 'apr', e.target.value)}
+                />
+              </Field>
+            </FormGrid>
+          )}
 
           <Toolbar className="whatif-section-divider whatif-toolbar-tight">
             <Button variant="secondary" size="sm" onClick={runSimulation} busy={simulating} busyLabel="Running">
