@@ -2,11 +2,13 @@ package com.neobank.module.controller;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
+import com.neobank.module.service.UnprocessableCaseOverrideException;
 import com.neobank.module.service.ApplicationService;
 import com.neobank.module.service.ApplicantUnavailableException;
 import java.math.BigDecimal;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CasesController.class)
@@ -101,5 +104,81 @@ class CasesControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.message")
                         .value("applicant data is temporarily unavailable for app-1301"));
+    }
+
+    @Test
+    void overrideReturnsUpdatedCase() throws Exception {
+        CaseView view = new CaseView(
+                "ACCEPTED",
+                "REJECTED",
+                "cre-000517",
+                1,
+                new CaseView.WorkingsView(
+                        34000, 2833, 1180,
+                        new BigDecimal("0.42"), new BigDecimal("0.45"),
+                        2833, 10000, 3000, 2800,
+                        new BigDecimal("24.9"), null,
+                        "income evidenced at 34k", "PREMIUM", 20000),
+                new CaseView.SamplingView(false));
+
+        when(applications.overrideCase(org.mockito.ArgumentMatchers.eq("app-1234"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(view);
+
+        mvc.perform(post("/cases/app-1234/override")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newOutcome":"APPROVED","grantedLimit":2800,
+                                "reason":"income evidenced at 34k","operator":"b.dimovski"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("ACCEPTED"))
+                .andExpect(jsonPath("$.machineOutcome").value("REJECTED"))
+                .andExpect(jsonPath("$.workings.grantedLimit").value(2800))
+                .andExpect(jsonPath("$.workings.decisionReason").value("income evidenced at 34k"));
+    }
+
+    @Test
+    void overrideRequiresReason() throws Exception {
+        mvc.perform(post("/cases/app-1234/override")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newOutcome":"APPROVED","grantedLimit":2800,
+                                "reason":"","operator":"b.dimovski"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("reason must not be blank"));
+    }
+
+    @Test
+    void overrideReturns404ForUnknownCase() throws Exception {
+        when(applications.overrideCase(org.mockito.ArgumentMatchers.eq("unknown-id"), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new NoSuchElementException("case not found: unknown-id"));
+
+        mvc.perform(post("/cases/unknown-id/override")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newOutcome":"DECLINED",
+                                "reason":"new information contradicts the original approval",
+                                "operator":"b.dimovski"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("case not found: unknown-id"));
+    }
+
+    @Test
+    void overrideReturns422WhenApprovalExceedsStoredBasis() throws Exception {
+        when(applications.overrideCase(org.mockito.ArgumentMatchers.eq("app-1234"), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new UnprocessableCaseOverrideException(
+                        "grantedLimit must not exceed stored three-way minimum of 2800"));
+
+        mvc.perform(post("/cases/app-1234/override")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"newOutcome":"APPROVED","grantedLimit":2900,
+                                "reason":"income evidenced at 34k","operator":"b.dimovski"}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message")
+                        .value("grantedLimit must not exceed stored three-way minimum of 2800"));
     }
 }

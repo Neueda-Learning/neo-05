@@ -3,15 +3,17 @@ package com.neobank.module.service;
 import com.neobank.module.dto.ApplicantViewDto;
 import com.neobank.module.dto.CaseView;
 import com.neobank.module.dto.DemoShowcaseView;
+import com.neobank.module.dto.OverrideCaseRequest;
 import com.neobank.module.integrations.orchestrator.Application;
 import com.neobank.module.integrations.orchestrator.ApplicationRequest;
 import com.neobank.module.integrations.orchestrator.OrchestratorClient;
 import com.neobank.module.model.CreditConfig;
 import com.neobank.module.model.CreditRecord;
 import com.neobank.module.model.Decision;
+import com.neobank.module.model.OverrideLog;
 import com.neobank.module.repository.CreditConfigRepository;
 import com.neobank.module.repository.CreditRecordRepository;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.neobank.module.repository.OverrideLogRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -20,6 +22,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 import org.slf4j.Logger;
@@ -28,8 +31,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.HttpClientErrorException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -82,6 +83,7 @@ public class ApplicationService {
     private final CreditRecordAcceptanceService acceptance;
     private final CreditRecordRepository creditRecords;
     private final CreditConfigRepository creditConfigs;
+    private final OverrideLogRepository overrideLogs;
     private final OrchestratorClient orchestrator;
     private final ObjectMapper objectMapper;
 
@@ -95,11 +97,13 @@ public class ApplicationService {
                               CreditRecordAcceptanceService acceptance,
                               CreditRecordRepository creditRecords,
                               CreditConfigRepository creditConfigs,
+                              OverrideLogRepository overrideLogs,
                               OrchestratorClient orchestrator) {
         this.executor = executor;
         this.acceptance = acceptance;
         this.creditRecords = creditRecords;
         this.creditConfigs = creditConfigs;
+        this.overrideLogs = overrideLogs;
         this.orchestrator = orchestrator;
         this.objectMapper = new ObjectMapper();
     }
@@ -513,37 +517,95 @@ public class ApplicationService {
     public CaseView getCase(String applicationId) {
         CreditRecord row = creditRecords.findById(applicationId)
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
-        CreditConfig config = resolveConfigForCase(row);
-        
-        // Read the product terms from the same pinned config representation used at decision time.
+        return buildCaseView(row);
+        }
+
+        @Transactional
+        public CaseView overrideCase(String applicationId, OverrideCaseRequest request) {
+        CreditRecord row = creditRecords.findById(applicationId)
+            .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
+
+        ManualOverrideCommand command = parseOverride(request);
+        validateOverride(row, command);
+
+        if (isDuplicateOverride(applicationId, row, command)) {
+            return buildCaseView(row);
+        }
+
+        String oldOutcome = row.getOutcome();
+        row.applyManualOverride(
+            command.internalOutcome(),
+            command.grantedLimit(),
+            command.reason(),
+            command.operator());
+        creditRecords.save(row);
+
+        overrideLogs.save(OverrideLog.of(
+            applicationId,
+            oldOutcome,
+            command.internalOutcome(),
+            command.grantedLimit(),
+            command.reason(),
+            command.operator()));
+
+        orchestrator.applicationStatusUpdate(
+            applicationId,
+            asDecision(command.internalOutcome()),
+            callbackComment(row, command));
+
+        return buildCaseView(row);
+        }
+
+        private CaseView buildCaseView(CreditRecord row) {
+            CreditConfig config = resolveConfigForCase(row);
+            BigDecimal dtiLimit = config != null && config.getDtiLimit() != null
+                    ? config.getDtiLimit()
+                    : BigDecimal.ZERO;
+
         Integer minIncome = null;
-        if (row.getProductCode() != null) {
+            if (config != null && row.getProductCode() != null) {
             try {
                 minIncome = resolveTerms(config, row.getProductCode()).minIncome();
             } catch (Exception e) {
                 log.warn("Failed to extract minIncome for productCode {}", row.getProductCode(), e);
             }
         }
-        
-        log.info("DEBUG: row.getDecisionReason() = {}", row.getDecisionReason());
-        CaseView result = CaseView.of(row, config.getDtiLimit(), minIncome);
-        log.info("DEBUG: result.workings().decisionReason() = {}", result.workings().decisionReason());
-        return result;
+
+        List<CaseView.OverrideView> overrides = overrideLogs
+                .findByApplicationIdOrderByOverriddenAtDescIdDesc(row.getApplicationId())
+                .stream()
+                .map(CaseView.OverrideView::of)
+                .toList();
+        return CaseView.of(row, dtiLimit, minIncome, overrides);
     }
 
-        private CreditConfig resolveConfigForCase(CreditRecord row) {
+    private CreditConfig resolveConfigForCase(CreditRecord row) {
         Long configId = row.getCreditConfigId();
         if (configId != null) {
-            return creditConfigs.findById(configId)
-                .orElseThrow(() -> new IllegalStateException(
-                    "config id " + configId + " not found"));
+            CreditConfig byId = creditConfigs.findById(configId).orElse(null);
+            if (byId == null) {
+            log.warn("config id {} not found for case {}; returning case with fallback config values",
+                configId, row.getApplicationId());
+            }
+            return byId;
         }
 
-        return creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(
-                row.getCreditConfigVersion())
-            .orElseThrow(() -> new IllegalStateException(
-                "config version " + row.getCreditConfigVersion() + " not found"));
+        Integer configVersion = row.getCreditConfigVersion();
+        if (configVersion == null) {
+            log.warn("credit_config version missing for case {}; returning case with fallback config values",
+                row.getApplicationId());
+            return null;
         }
+
+        CreditConfig byVersion = creditConfigs
+            .findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(configVersion)
+            .orElse(null);
+        if (byVersion == null) {
+            log.warn("config version {} not found for case {}; returning case with fallback config values",
+                configVersion, row.getApplicationId());
+        }
+        return byVersion;
+    }
 
     /**
      * Fetch and return applicant details from the orchestrator — UC 03.
@@ -566,6 +628,89 @@ public class ApplicationService {
         }
     }
 
+    private ManualOverrideCommand parseOverride(OverrideCaseRequest request) {
+        String normalizedOutcome = request.newOutcome() == null ? "" : request.newOutcome().trim().toUpperCase();
+        String internalOutcome = switch (normalizedOutcome) {
+            case "APPROVED" -> CreditRecord.STATUS_ACCEPTED;
+            case "REFERRED" -> CreditRecord.STATUS_REFERRED;
+            default -> throw new IllegalArgumentException(
+                    "newOutcome must be one of APPROVED or REFERRED");
+        };
+        String trimmedReason = request.reason().trim();
+        String trimmedOperator = request.operator().trim();
+        return new ManualOverrideCommand(normalizedOutcome, internalOutcome, request.grantedLimit(),
+                trimmedReason, trimmedOperator);
+    }
+
+    private void validateOverride(CreditRecord row, ManualOverrideCommand command) {
+        if (!CreditRecord.STATUS_REJECTED.equals(row.getOutcome())) {
+            throw new UnprocessableCaseOverrideException(
+                    "only REJECTED cases can be overridden");
+        }
+
+        if (CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())) {
+            if (command.grantedLimit() == null) {
+                throw new UnprocessableCaseOverrideException(
+                        "grantedLimit is required when newOutcome is APPROVED");
+            }
+            if (command.grantedLimit() <= 0) {
+                throw new UnprocessableCaseOverrideException(
+                        "grantedLimit must be positive when newOutcome is APPROVED");
+            }
+
+            int maximumAllowedLimit = storedThreeWayMinimum(row);
+            if (command.grantedLimit() > maximumAllowedLimit) {
+                throw new UnprocessableCaseOverrideException(
+                        "grantedLimit must not exceed stored three-way minimum of " + maximumAllowedLimit);
+            }
+        }
+    }
+
+    private int storedThreeWayMinimum(CreditRecord row) {
+        Integer incomeBasisLimit = row.getIncomeBasisLimit();
+        Integer requestedLimit = row.getRequestedLimit();
+        Integer productMaxLimit = row.getProductMaxLimit();
+        if (incomeBasisLimit == null || requestedLimit == null || productMaxLimit == null) {
+            throw new UnprocessableCaseOverrideException(
+                    "case " + row.getApplicationId() + " does not have stored limit workings for manual approval");
+        }
+        return Math.min(incomeBasisLimit, Math.min(requestedLimit, productMaxLimit));
+    }
+
+    private boolean isDuplicateOverride(String applicationId,
+                                        CreditRecord row,
+                                        ManualOverrideCommand command) {
+        boolean recordAlreadyMatches = row.getOutcome().equals(command.internalOutcome())
+            && Objects.equals(row.getDecisionReason(), command.reason())
+            && Objects.equals(row.getDecidedBy(), command.operator())
+            && (!CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())
+            || Objects.equals(row.getGrantedLimit(), command.grantedLimit()));
+        if (!recordAlreadyMatches) {
+            return false;
+        }
+
+        return overrideLogs.findFirstByApplicationIdOrderByOverriddenAtDescIdDesc(applicationId)
+            .map(latest -> latest.getNewOutcome().equals(command.internalOutcome())
+                && Objects.equals(latest.getGrantedLimit(), command.grantedLimit())
+                && latest.getReason().equals(command.reason())
+                && latest.getOperator().equals(command.operator()))
+            .orElse(true);
+    }
+
+    private String callbackComment(CreditRecord row, ManualOverrideCommand command) {
+        return switch (command.externalOutcome()) {
+            case "APPROVED" -> "local-manual CRE_MANUAL_APPROVED limit="
+                    + command.grantedLimit() + " apr=" + row.getApr() + " reason=" + command.reason();
+            default -> "local-manual CRE_MANUAL_REFERRED reason=" + command.reason();
+        };
+    }
+
+    private record ManualOverrideCommand(String externalOutcome,
+                                         String internalOutcome,
+                                         Integer grantedLimit,
+                                         String reason,
+                                         String operator) {
+    }
     /**
      * Update the decision status after manual review (UC 04).
      * Called when a user accepts or declines a referred application in the UI.
