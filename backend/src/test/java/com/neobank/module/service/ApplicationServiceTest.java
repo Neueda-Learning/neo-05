@@ -122,6 +122,75 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void policyEditorProfileRowsAreUsedWithoutParsingTheProfileNameAsJson() {
+        CreditRecord inProgress = CreditRecord.inProgress("SIM-PROFILE");
+        CreditConfig selected = CreditConfig.of(
+                4,
+                "PLATINUM",
+                new BigDecimal("0.45"),
+                new BigDecimal("100"),
+                7,
+                Instant.now()).withProductTermColumns(
+                        "CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"));
+        CreditConfig rewardsTerms = CreditConfig.of(
+                4,
+                "PLATINUM",
+                new BigDecimal("0.45"),
+                new BigDecimal("100"),
+                7,
+                Instant.now()).withProductTermColumns(
+                        "CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9"));
+
+        when(creditRecords.findById("SIM-PROFILE"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(inProgress));
+        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PLATINUM"))
+                .thenReturn(Optional.of(selected));
+        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(4, "PLATINUM"))
+                .thenReturn(java.util.List.of(selected, rewardsTerms));
+
+        service.processApplicationAsync(request("SIM-PROFILE"));
+
+        ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        CreditRecord decided = saved.getAllValues().getLast();
+        assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+        assertThat(decided.getProductMaxLimit()).isEqualTo(8000);
+        assertThat(decided.getApr()).isEqualByComparingTo("14.9");
+        verify(orchestrator).applicationStatusUpdate(
+                "SIM-PROFILE", Decision.ACCEPTED, "CRE_APPROVED");
+    }
+
+    @Test
+    void namedSeedProfileFallsBackToItsCatalogueTerms() {
+        CreditRecord inProgress = CreditRecord.inProgress("SIM-SEED-PROFILE");
+        CreditConfig selected = CreditConfig.of(
+                1,
+                "PLATINUM",
+                new BigDecimal("0.45"),
+                new BigDecimal("100"),
+                7,
+                Instant.now());
+
+        when(creditRecords.findById("SIM-SEED-PROFILE"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(inProgress));
+        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PLATINUM"))
+                .thenReturn(Optional.of(selected));
+        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(1, "PLATINUM"))
+                .thenReturn(java.util.List.of(selected));
+
+        service.processApplicationAsync(request("SIM-SEED-PROFILE"));
+
+        ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        CreditRecord decided = saved.getAllValues().getLast();
+        assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+        assertThat(decided.getProductMaxLimit()).isEqualTo(8000);
+        assertThat(decided.getApr()).isEqualByComparingTo("14.9");
+    }
+
+    @Test
     void repeatedRequestsDoNotCreateAnotherRow() {
         CreditRecord existing = CreditRecord.inProgress("SIM-02");
         when(creditRecords.findById("SIM-02")).thenReturn(Optional.of(existing));
