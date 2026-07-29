@@ -28,6 +28,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [caseError, setCaseError] = useState(null);
   const [applicantError, setApplicantError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideError, setOverrideError] = useState(null);
