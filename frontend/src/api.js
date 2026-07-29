@@ -66,6 +66,11 @@ export const api = {
       }`
     ),
   getCase: (id) => request(`/api/v1/cases/${id}`),
+  getCreditPolicy: () => request('/api/v1/credit-policy'),
+  simulateWhatIf: (draft) => request('/api/v1/what-if', {
+    method: 'POST',
+    body: JSON.stringify({ draft }),
+  }),
   overrideCase: (id, payload) =>
     request(`/api/v1/cases/${encodeURIComponent(id)}/override`, {
       method: 'POST',

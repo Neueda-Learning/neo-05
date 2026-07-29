@@ -60,14 +60,17 @@
 .ds-input:hover:not(:disabled),
 .ds-select:hover:not(:disabled),
 .ds-textarea:hover:not(:disabled) {
-  background: var(--ds-control-fill-hover, var(--ds-control-fill, var(--ds-color-canvas)));
+  /* background-color only — the shorthand `background` resets background-image
+   * too, which is how .ds-select draws its chevron; using the shorthand here
+   * made the arrow vanish on hover. */
+  background-color: var(--ds-control-fill-hover, var(--ds-control-fill, var(--ds-color-canvas)));
   border-color: var(--ds-color-border-strong);
 }
 
 .ds-input:disabled,
 .ds-select:disabled,
 .ds-textarea:disabled {
-  background: var(--ds-color-surface-sunken);
+  background-color: var(--ds-color-surface-sunken);
   opacity: 0.6;
   cursor: not-allowed;
 }

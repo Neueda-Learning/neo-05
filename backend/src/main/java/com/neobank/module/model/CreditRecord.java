@@ -214,6 +214,10 @@ public class CreditRecord {
         return creditConfigId;
     }
 
+    public String getProductCode() {
+        return productCode;
+    }
+
     public Integer getAnnualIncome() {
         return annualIncome;
     }
@@ -272,10 +276,6 @@ public class CreditRecord {
 
     public String getCapReason() {
         return capReason;
-    }
-
-    public String getProductCode() {
-        return productCode;
     }
 
     public Instant getSubmittedAt() {

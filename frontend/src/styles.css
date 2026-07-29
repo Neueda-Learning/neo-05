@@ -119,28 +119,15 @@
   font-weight: 400;
 }
 
-.form-group input {
-  padding: var(--ds-space-1) var(--ds-space-2);
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-0);
-  font-size: var(--ds-type-scale-1);
-  font-family: inherit;
-  background-color: var(--ds-color-bg-primary);
-  color: var(--ds-color-text-primary);
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: var(--ds-color-border-focus);
-  box-shadow: 0 0 0 2px var(--ds-color-bg-focus);
-}
-
 .product-card {
-  padding: var(--ds-space-3);
+  padding-bottom: var(--ds-space-2);
   margin-bottom: var(--ds-space-2);
-  background-color: var(--ds-color-bg-primary);
-  border: 1px solid var(--ds-color-border);
-  border-radius: var(--ds-radius-1);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.product-card:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .product-card h3 {
@@ -183,4 +170,179 @@
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* What-if Simulator (UC05) */
+.whatif-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ds-space-4);
+  /* Results should size to its own content, not stretch to match whatever
+   * height Draft Config happens to be (grid's default stretch). */
+  align-items: start;
+}
+
+.whatif-pane-heading {
+  margin-bottom: var(--ds-space-2);
+}
+
+/* The simulation disclaimer reads as a neutral note, not a status of any kind —
+ * tone="neutral" on the Alert already gives the grey surface. Trimmed padding
+ * and font-size keep it from eating space it doesn't need in a dense form. */
+.whatif-banner-alert {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  font-size: var(--ds-text-sm);
+}
+
+/* Draft Config packs a lot of fields in — tighten the card body, the field
+ * label/control gap, and the row gaps relative to the design system's
+ * (roomier) defaults, so the whole form fits without scrolling. */
+.whatif-draft-card .ds-card__body {
+  padding: var(--ds-space-3) var(--ds-space-4);
+}
+
+.whatif-draft-card .ds-field {
+  gap: var(--ds-space-1);
+}
+
+.whatif-draft-card .ds-form-grid {
+  gap: var(--ds-space-1) var(--ds-space-4);
+}
+
+.whatif-draft-card .ds-section__head {
+  margin-bottom: var(--ds-space-2);
+}
+
+.whatif-product-type-field {
+  margin-bottom: var(--ds-space-2);
+}
+
+/* The DTI row's range + number pair — a Field's only child that is not a
+ * single control, so it keeps its own layout rule. Track painted with a
+ * value-driven gradient (--whatif-range-fill, set inline from the current
+ * value): accent green up to the thumb, white beyond it. */
+.whatif-dti-controls {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: var(--ds-space-2);
+  align-items: center;
+}
+
+.whatif-dti-controls input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(
+    to right,
+    var(--ds-color-accent) var(--whatif-range-fill, 50%),
+    #ffffff var(--whatif-range-fill, 50%)
+  );
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-color-border);
+  color-scheme: light;
+  cursor: pointer;
+}
+
+.whatif-dti-controls input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--ds-color-accent);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+}
+
+.whatif-dti-controls input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+}
+
+.whatif-dti-controls input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-accent);
+}
+
+.whatif-dti-controls input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ds-color-accent);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+}
+
+.whatif-section-divider {
+  margin-top: var(--ds-space-2);
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-color-border);
+  /* .ds-section's own rule sets margin-bottom: var(--ds-space-7) — far more
+   * than this pane needs between the product fields and Run Simulation. */
+  margin-bottom: 0;
+}
+
+/* .whatif-section-divider above already tightened the Section's own
+ * margin-bottom; Toolbar is the card's last element here, so its own
+ * margin-bottom (--ds-space-5, meant for toolbars followed by more content)
+ * is just wasted space at the bottom of the card. */
+.whatif-toolbar-tight {
+  margin-top: calc(-1 * var(--ds-space-2));
+  margin-bottom: 0;
+}
+
+.whatif-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.whatif-results-body {
+}
+
+.whatif-arrow {
+  font-weight: 700;
+}
+
+.whatif-up {
+  color: var(--ds-color-text-success);
+}
+
+.whatif-down {
+  color: var(--ds-color-text-danger);
+}
+
+.whatif-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-decoration: underline;
+  color: var(--ds-link);
+  cursor: pointer;
+  font: inherit;
+}
+
+/* Flat, borderless table to match the Credit Policy tab's plain <table
+ * className="ds-table"> look, rather than the bordered/shadowed card the
+ * DataTable component wraps around a table by default. */
+.whatif-results-table .ds-table-wrap {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+@media (max-width: 980px) {
+  .whatif-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .whatif-dti-controls {
+    grid-template-columns: 1fr;
+  }
 }

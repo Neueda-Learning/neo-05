@@ -5,6 +5,7 @@ import CaseDetailScreen from './components/CaseDetailScreen.jsx';
 import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
 import PolicyListScreen from './components/PolicyListScreen.jsx';
 import CasesScreen from './components/CasesScreen.jsx';
+import WhatIfSimulatorScreen from './components/WhatIfSimulatorScreen.jsx';
 import ReferredQueueScreen from './components/ReferredQueueScreen.jsx';
 import { api } from './api.js';
 
@@ -17,6 +18,8 @@ const HEALTH_MS = 10000;
 const SCREENS = [
   { id: 'applications', label: 'Application' },
   { id: 'cases', label: 'Cases', hint: 'search decisions' },
+  { id: 'what-if', label: 'What-if', hint: 'draft simulation' },
+  { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
   { id: 'referred-queue', label: 'Referred Queue', hint: 'manual review' },
   { id: 'policy-list', label: 'Credit Policy' },
 ];
@@ -37,6 +40,7 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [info, setInfo] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [draftForEditor, setDraftForEditor] = useState(null);
   const [selectedReferredCase, setSelectedReferredCase] = useState(null);
 
   const reload = useCallback(async () => {
@@ -121,6 +125,7 @@ export default function App() {
             onOpenPolicyEditor={() => {
               setSelectedPolicyVersion(null);
               setSelectedPolicyCode(null);
+              setDraftForEditor(null);
               setScreen('policy-editor');
             }}
           />
@@ -132,6 +137,7 @@ export default function App() {
           onViewDetails={(version, policyCode) => {
             setSelectedPolicyVersion(version);
             setSelectedPolicyCode(policyCode || null);
+            setDraftForEditor(null);
             setScreen('policy-editor');
           }}
         />
@@ -140,15 +146,31 @@ export default function App() {
         <PolicyEditorScreen
           selectedVersion={selectedPolicyVersion}
           selectedPolicyCode={selectedPolicyCode}
+          initialDraft={draftForEditor}
           onBackToList={(payload) => {
             if (payload?.notice) {
               setPolicyListNotice(payload.notice);
             }
+            setDraftForEditor(null);
             setScreen('policy-list');
           }}
         />
       )}
       {screen === 'cases' && <CasesScreen />}
+      {screen === 'what-if' && (
+        <WhatIfSimulatorScreen
+          onOpenPolicyEditor={(draft, policyCode) => {
+            setSelectedPolicyVersion(null);
+            setSelectedPolicyCode(policyCode || null);
+            setDraftForEditor(draft);
+            setScreen('policy-editor');
+          }}
+          onOpenCase={(applicationId) => {
+            setSelectedCase(applicationId);
+            setScreen('applications');
+          }}
+        />
+      )}
       {screen === 'referred-queue' && (
         selectedReferredCase ? (
           <CaseDetailScreen caseId={selectedReferredCase} onClose={() => setSelectedReferredCase(null)} />
