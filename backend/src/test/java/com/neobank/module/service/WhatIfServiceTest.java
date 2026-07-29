@@ -34,7 +34,7 @@ class WhatIfServiceTest {
         accepted.applyScoring(1, 1L, "CREDIT_CARD_STANDARD", 36_000, 3_000, 1_200,
                 new BigDecimal("0.40"), 3_000, 3_000, 5_000, 3_000,
                 new BigDecimal("29.9"), "CRE_APPROVED");
-        accepted.markFinal(CreditRecord.STATUS_ACCEPTED, "CRE_APPROVED");
+        accepted.recordMachineDecision(CreditRecord.STATUS_ACCEPTED, "CRE_APPROVED");
 
         when(creditRecords.findByOutcomeInOrderBySubmittedAtDescApplicationIdDesc(List.of(
                 CreditRecord.STATUS_REJECTED,
@@ -58,7 +58,7 @@ class WhatIfServiceTest {
         referred.applyScoring(1, 1L, "CREDIT_CARD_STANDARD", 48_000, 4_000, 1_840,
                 new BigDecimal("0.46"), 4_000, 3_000, 5_000, null,
                 new BigDecimal("29.9"), null);
-        referred.markFinal(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
+        referred.recordMachineDecision(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
 
         when(creditRecords.findByOutcomeInOrderBySubmittedAtDescApplicationIdDesc(List.of(
                 CreditRecord.STATUS_REJECTED,
@@ -82,7 +82,7 @@ class WhatIfServiceTest {
         referred.applyScoring(1, 1L, "CREDIT_CARD_REWARDS", 48_000, 4_000, 1_840,
                 new BigDecimal("0.46"), 4_000, 3_000, 5_000, null,
                 new BigDecimal("24.9"), null);
-        referred.markFinal(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
+        referred.recordMachineDecision(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
 
         when(creditRecords.findByOutcomeInOrderBySubmittedAtDescApplicationIdDesc(List.of(
                 CreditRecord.STATUS_REJECTED,

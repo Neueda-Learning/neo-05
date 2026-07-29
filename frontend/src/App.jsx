@@ -19,7 +19,6 @@ const SCREENS = [
   { id: 'applications', label: 'Application' },
   { id: 'cases', label: 'Cases', hint: 'search decisions' },
   { id: 'what-if', label: 'What-if', hint: 'draft simulation' },
-  { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
   { id: 'referred-queue', label: 'Referred Queue', hint: 'manual review' },
   { id: 'policy-list', label: 'Credit Policy' },
 ];

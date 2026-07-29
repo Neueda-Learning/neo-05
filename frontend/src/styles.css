@@ -194,27 +194,33 @@
   font-size: var(--ds-text-sm);
 }
 
-/* Draft Config packs a lot of fields in — tighten the card body, the field
- * label/control gap, and the row gaps relative to the design system's
- * (roomier) defaults, so the whole form fits without scrolling. */
+/* Draft Config packs a lot of fields in — tighten the card body and the
+ * row gaps a bit relative to the design system's (roomier) defaults, so the
+ * whole form fits without scrolling. Field label/control/hint spacing itself
+ * is left at the design system default (--ds-space-2) — shrinking that too
+ * read as cramped rather than compact. */
 .whatif-draft-card .ds-card__body {
   padding: var(--ds-space-3) var(--ds-space-4);
 }
 
-.whatif-draft-card .ds-field {
-  gap: var(--ds-space-1);
-}
-
 .whatif-draft-card .ds-form-grid {
-  gap: var(--ds-space-1) var(--ds-space-4);
+  gap: var(--ds-space-2) var(--ds-space-4);
 }
 
 .whatif-draft-card .ds-section__head {
   margin-bottom: var(--ds-space-2);
 }
 
+/* Product Terms sits between the banner and DTI Limit as just another block in
+ * the Stack's own rhythm — no divider rule, no extra top spacing of its own.
+ * Only cancels Section's big built-in margin-bottom (--ds-space-7); the Stack
+ * gap after it is what actually separates it from DTI Limit. */
+.whatif-section-flush {
+  margin-bottom: 0;
+}
+
 .whatif-product-type-field {
-  margin-bottom: var(--ds-space-2);
+  margin-bottom: 0;
 }
 
 /* The DTI row's range + number pair — a Field's only child that is not a
