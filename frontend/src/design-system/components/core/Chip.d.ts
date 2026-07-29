@@ -8,7 +8,12 @@ export interface ChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 
 export declare function Chip(props: ChipProps): JSX.Element;
 
-export type ChipOption = string | { value: string; label: React.ReactNode };
+export type ChipOption = string | {
+  value: string;
+  label: React.ReactNode;
+  /** Optional class applied to this option's Chip. */
+  className?: string;
+};
 
 export interface ChipGroupProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
   options: ChipOption[];

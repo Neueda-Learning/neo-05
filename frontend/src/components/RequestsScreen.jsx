@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
-  Button,
   ChipGroup,
   DataTable,
   EmptyState,
@@ -14,7 +13,14 @@ import {
 } from '../design-system';
 import { statusTone, STATUSES, time } from '../status.js';
 
-const FILTERS = ['All', ...STATUSES];
+const FILTERS = [
+  'All',
+  ...STATUSES.map((status) => ({
+    value: status,
+    label: status,
+    className: `applications-filter--${statusTone(status)}`,
+  })),
+];
 
 /**
  * Everything this module has answered.
@@ -24,10 +30,9 @@ const FILTERS = ['All', ...STATUSES];
  * graded deliverable, so add the columns, filters and detail views your business topic needs.
  *
  * The board follows the platform shape (design-system/DESIGN.md § "Board"): a header stating the
- * screen's rules, a toolbar that narrows, a capped table. The 10-row cap and its footnote come from
- * DataTable — no screen re-implements them.
+ * screen's rules, a toolbar that narrows, and a table of all matching applications.
  */
-export default function RequestsScreen({ requests, error, info, onRowClick, onOpenPolicyEditor }) {
+export default function RequestsScreen({ requests, error, info, onRowClick }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
 
@@ -115,23 +120,12 @@ export default function RequestsScreen({ requests, error, info, onRowClick, onOp
           aria-label="Search applications"
         />
         <ChipGroup options={FILTERS} value={filter} onChange={setFilter} counts={counts} />
-        {onOpenPolicyEditor && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onOpenPolicyEditor}
-            style={{ marginLeft: 'auto' }}
-            title="Open the credit policy editor prefilled with the current configuration"
-          >
-            Open Credit Policy Editor
-          </Button>
-        )}
       </Toolbar>
 
       <DataTable
         columns={columns}
         rows={matches}
+        maxRows={null}
         total={matches.length}
         rowKey={(r) => r.applicationId}
         footnote="newest first"
