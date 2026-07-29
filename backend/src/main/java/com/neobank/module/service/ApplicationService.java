@@ -392,10 +392,13 @@ public class ApplicationService {
         }
 
         private CaseView buildCaseView(CreditRecord row) {
-        CreditConfig config = resolveConfigForCase(row);
+            CreditConfig config = resolveConfigForCase(row);
+            BigDecimal dtiLimit = config != null && config.getDtiLimit() != null
+                    ? config.getDtiLimit()
+                    : BigDecimal.ZERO;
 
         Integer minIncome = null;
-        if (row.getProductCode() != null) {
+            if (config != null && row.getProductCode() != null) {
             try {
                 Map<String, ProductTermsRaw> termsByCode = objectMapper.readValue(config.getProductTerms(), new TypeReference<>() {
                 });
@@ -413,21 +416,35 @@ public class ApplicationService {
                 .stream()
                 .map(CaseView.OverrideView::of)
                 .toList();
-        return CaseView.of(row, config.getDtiLimit(), minIncome, overrides);
+        return CaseView.of(row, dtiLimit, minIncome, overrides);
     }
 
     private CreditConfig resolveConfigForCase(CreditRecord row) {
         Long configId = row.getCreditConfigId();
         if (configId != null) {
-            return creditConfigs.findById(configId)
-                    .orElseThrow(() -> new IllegalStateException(
-                            "config id " + configId + " not found"));
+            CreditConfig byId = creditConfigs.findById(configId).orElse(null);
+            if (byId == null) {
+            log.warn("config id {} not found for case {}; returning case with fallback config values",
+                configId, row.getApplicationId());
+            }
+            return byId;
         }
 
-        return creditConfigs.findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(
-                row.getCreditConfigVersion())
-                .orElseThrow(() -> new IllegalStateException(
-                        "config version " + row.getCreditConfigVersion() + " not found"));
+        Integer configVersion = row.getCreditConfigVersion();
+        if (configVersion == null) {
+            log.warn("credit_config version missing for case {}; returning case with fallback config values",
+                row.getApplicationId());
+            return null;
+        }
+
+        CreditConfig byVersion = creditConfigs
+            .findFirstByVersionOrderByEffectiveFromDescConfigIdDesc(configVersion)
+            .orElse(null);
+        if (byVersion == null) {
+            log.warn("config version {} not found for case {}; returning case with fallback config values",
+                configVersion, row.getApplicationId());
+        }
+        return byVersion;
     }
 
     /**

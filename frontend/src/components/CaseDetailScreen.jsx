@@ -1,6 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Grid, PageHeader, Spinner } from '../design-system';
-import { statusTone, time } from '../status.js';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Field,
+  Grid,
+  Modal,
+  PageHeader,
+  Select,
+  Spinner,
+  TextInput,
+  Textarea,
+} from '../design-system';
+import { statusTone } from '../status.js';
 import { api } from '../api.js';
 
 /**
@@ -15,6 +28,14 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [caseError, setCaseError] = useState(null);
   const [applicantError, setApplicantError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideError, setOverrideError] = useState(null);
+  const [overrideForm, setOverrideForm] = useState({
+    newOutcome: 'REFERRED',
+    reason: '',
+    operator: '',
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -56,11 +77,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   }
 
   const workings = caseData?.workings;
-  const outcome = caseData?.outcome;
   const decisionReason = workings?.decisionReason;
-  console.log("decision reason: ", decisionReason);
-  console.log("full caseData: ", caseData);
-  console.log("workings: ", workings);
+  const canOverrideRejectedCase = caseData?.outcome === 'REJECTED';
 
   // Split multi-reason string (reasons joined by '-', e.g. "CRE_APPROVED-CRE_LIMIT_CAPPED_TO_REQUEST")
   const reasonCodes = decisionReason ? decisionReason.split('-') : [];
@@ -78,10 +96,6 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   // Determine step statuses based on decisionReason
   const isMinIncomeFailure = hasReason('CRE_REJECTED_MIN_INCOME');
   const isAffordabilityFailure = hasReason('CRE_AFFORDABILITY_EXCEEDED');
-  const isApproved = hasReason('CRE_APPROVED') ||
-                     hasReason('CRE_LIMIT_CAPPED_TO_REQUEST') ||
-                     hasReason('CRE_LIMIT_CAPPED_TO_BAND_MAX');
-
   const step1Status = isUnknownReason ? 'UNKNOWN' : (isMinIncomeFailure ? 'FAILED' : 'PASSED');
   const step1Tone = isUnknownReason ? null : (isMinIncomeFailure ? 'negative' : 'positive');
 
@@ -90,9 +104,6 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
   const step3Status = isUnknownReason ? 'UNKNOWN' : ((isMinIncomeFailure || isAffordabilityFailure) ? 'PENDING' : 'PASSED');
   const step3Tone = isUnknownReason ? null : ((isMinIncomeFailure || isAffordabilityFailure) ? null : 'positive');
-
-  console.log("step1Status: ", step1Status, "step2Status: ", step2Status, "step3Status: ", step3Status);  // Overall outcome badge tone
-  const overallTone = isUnknownReason ? null : (isMinIncomeFailure ? 'negative' : (isAffordabilityFailure ? 'warning' : 'positive'));
 
   // Get reason text for display
   const getMinIncomeReason = () => {
@@ -109,6 +120,74 @@ export default function CaseDetailScreen({ caseId, onClose }) {
       return `Zero income cannot be afforded`;
     }
     return `Expected DTI ${workings?.dtiLimit?.toFixed(2) ?? '—'}, but ${workings?.dti?.toFixed(2) ?? '—'}`;
+  };
+
+  const openOverride = () => {
+    if (!canOverrideRejectedCase) return;
+    setOverrideError(null);
+    setOverrideForm({
+      newOutcome: 'REFERRED',
+      reason: '',
+      operator: '',
+    });
+    setOverrideOpen(true);
+  };
+
+  const closeOverride = () => {
+    if (overrideSubmitting) return;
+    setOverrideOpen(false);
+  };
+
+  const capToThreeWayMinimum = () => {
+    if (!workings) return null;
+    const { incomeBasisLimit, requestedLimit, productMaxLimit } = workings;
+    if (
+      incomeBasisLimit == null ||
+      requestedLimit == null ||
+      productMaxLimit == null
+    ) {
+      return null;
+    }
+    return Math.min(incomeBasisLimit, requestedLimit, productMaxLimit);
+  };
+
+  const submitOverride = async (event) => {
+    event.preventDefault();
+    const reason = overrideForm.reason.trim();
+    const operator = overrideForm.operator.trim();
+
+    if (!reason || !operator) {
+      setOverrideError('Reason and operator are required.');
+      return;
+    }
+
+    const payload = {
+      newOutcome: overrideForm.newOutcome,
+      reason,
+      operator,
+    };
+
+    if (overrideForm.newOutcome === 'APPROVED') {
+      // Backend requires grantedLimit for approved overrides.
+      const fallbackLimit = workings?.grantedLimit ?? capToThreeWayMinimum();
+      if (fallbackLimit == null) {
+        setOverrideError('This case has no stored limit basis for APPROVED override.');
+        return;
+      }
+      payload.grantedLimit = fallbackLimit;
+    }
+
+    setOverrideSubmitting(true);
+    setOverrideError(null);
+    try {
+      const updated = await api.overrideCase(caseId, payload);
+      setCaseData(updated);
+      setOverrideOpen(false);
+    } catch (error) {
+      setOverrideError(error.message || 'Failed to submit override.');
+    } finally {
+      setOverrideSubmitting(false);
+    }
   };
 
   return (
@@ -196,6 +275,22 @@ export default function CaseDetailScreen({ caseId, onClose }) {
               </div>
             )}
           </Card>
+
+          {canOverrideRejectedCase && (
+            <div style={{ marginTop: 'var(--ds-space-3)' }}>
+              <Button variant="primary" onClick={openOverride}>
+                Act on this record...
+              </Button>
+            </div>
+          )}
+
+          {caseError && (
+            <div style={{ marginTop: 'var(--ds-space-3)' }}>
+              <Alert tone="negative" title="Could not load case detail">
+                {caseError}
+              </Alert>
+            </div>
+          )}
         </div>
 
         {/* Right: Applicant Sidebar */}
@@ -293,6 +388,85 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           </Card>
         </div>
       </Grid>
+
+      <Modal
+        open={overrideOpen}
+        onClose={closeOverride}
+        title="Act on this record"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--ds-space-2)' }}>
+            <Button variant="secondary" onClick={closeOverride} disabled={overrideSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              form="override-case-form"
+              busy={overrideSubmitting}
+              busyLabel="Submitting..."
+            >
+              Submit
+            </Button>
+          </div>
+        }
+      >
+        <form id="override-case-form" onSubmit={submitOverride}>
+          {overrideError && (
+            <div style={{ marginBottom: 'var(--ds-space-3)' }}>
+              <Alert tone="negative" title="Could not submit override">
+                {overrideError}
+              </Alert>
+            </div>
+          )}
+
+          <Field label="New outcome" required>
+            {({ id }) => (
+              <Select
+                id={id}
+                value={overrideForm.newOutcome}
+                onChange={(event) =>
+                  setOverrideForm((prev) => ({ ...prev, newOutcome: event.target.value }))
+                }
+              >
+                <option value="APPROVED">APPROVED</option>
+                <option value="REFERRED">REFERRED</option>
+              </Select>
+            )}
+          </Field>
+
+          <Field
+            label="Reason"
+            required
+            hint="Please provide a clear explanation for audit trail."
+            style={{ marginTop: 'var(--ds-space-3)' }}
+          >
+            {({ id }) => (
+              <Textarea
+                id={id}
+                rows={6}
+                value={overrideForm.reason}
+                onChange={(event) =>
+                  setOverrideForm((prev) => ({ ...prev, reason: event.target.value }))
+                }
+                placeholder="Describe why the machine outcome is being overridden"
+              />
+            )}
+          </Field>
+
+          <Field label="Operator" required style={{ marginTop: 'var(--ds-space-3)' }}>
+            {({ id }) => (
+              <TextInput
+                id={id}
+                value={overrideForm.operator}
+                onChange={(event) =>
+                  setOverrideForm((prev) => ({ ...prev, operator: event.target.value }))
+                }
+                placeholder="e.g. b.dimovski"
+              />
+            )}
+          </Field>
+        </form>
+      </Modal>
     </>
   );
 }

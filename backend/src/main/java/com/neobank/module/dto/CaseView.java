@@ -16,17 +16,17 @@ public record CaseView(
         String reference,
         int creditConfigVersion,
         WorkingsView workings,
-                SamplingView sampling,
-                List<OverrideView> overrides) {
+        SamplingView sampling,
+        List<OverrideView> overrides) {
 
-        public CaseView(String outcome,
-                                        String machineOutcome,
-                                        String reference,
-                                        int creditConfigVersion,
-                                        WorkingsView workings,
-                                        SamplingView sampling) {
-                this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, List.of());
-        }
+    public CaseView(String outcome,
+                    String machineOutcome,
+                    String reference,
+                    int creditConfigVersion,
+                    WorkingsView workings,
+                    SamplingView sampling) {
+        this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, List.of());
+    }
 
     public record WorkingsView(
             int annualIncome,
@@ -42,54 +42,56 @@ public record CaseView(
             String capReason,
             String decisionReason,
             String productCode,
-            Integer minIncome) {}
+            Integer minIncome) {
+    }
 
-    public record SamplingView(boolean sampled) {}
+    public record SamplingView(boolean sampled) {
+    }
 
-        public record OverrideView(
-                        String oldOutcome,
-                        String newOutcome,
-                        Integer grantedLimit,
-                        String reason,
-                        String operator,
-                        Instant overriddenAt) {
-                public static OverrideView of(OverrideLog row) {
-                        return new OverrideView(
-                                        row.getOldOutcome(),
-                                        row.getNewOutcome(),
-                                        row.getGrantedLimit(),
-                                        row.getReason(),
-                                        row.getOperator(),
-                                        row.getOverriddenAt());
-                }
+    public record OverrideView(
+            String oldOutcome,
+            String newOutcome,
+            Integer grantedLimit,
+            String reason,
+            String operator,
+            Instant overriddenAt) {
+        public static OverrideView of(OverrideLog row) {
+            return new OverrideView(
+                    row.getOldOutcome(),
+                    row.getNewOutcome(),
+                    row.getGrantedLimit(),
+                    row.getReason(),
+                    row.getOperator(),
+                    row.getOverriddenAt());
         }
+    }
 
     public static CaseView of(CreditRecord row, BigDecimal dtiLimit) {
-                return of(row, dtiLimit, null, List.of());
-        }
+        return of(row, dtiLimit, null, List.of());
+    }
 
-        public static CaseView of(CreditRecord row, BigDecimal dtiLimit, Integer minIncome) {
-                return of(row, dtiLimit, minIncome, List.of());
-        }
+    public static CaseView of(CreditRecord row, BigDecimal dtiLimit, Integer minIncome) {
+        return of(row, dtiLimit, minIncome, List.of());
+    }
 
-        public static CaseView of(CreditRecord row,
-                                                          BigDecimal dtiLimit,
-                                                          Integer minIncome,
-                                                          List<OverrideView> overrides) {
+    public static CaseView of(CreditRecord row,
+                              BigDecimal dtiLimit,
+                              Integer minIncome,
+                              List<OverrideView> overrides) {
         return new CaseView(
                 row.getOutcome(),
                 row.getMachineOutcome(),
                 row.getReference(),
-                row.getCreditConfigVersion(),
+                nz(row.getCreditConfigVersion()),
                 new WorkingsView(
-                        row.getAnnualIncome(),
-                        row.getMonthlyIncome(),
-                        row.getMonthlyOutgoings(),
+                        nz(row.getAnnualIncome()),
+                        nz(row.getMonthlyIncome()),
+                        nz(row.getMonthlyOutgoings()),
                         row.getDti(),
                         dtiLimit,
-                        row.getIncomeBasisLimit(),
-                        row.getProductMaxLimit(),
-                        row.getRequestedLimit(),
+                        nz(row.getIncomeBasisLimit()),
+                        nz(row.getProductMaxLimit()),
+                        nz(row.getRequestedLimit()),
                         row.getGrantedLimit(),
                         row.getApr(),
                         row.getCapReason(),
@@ -98,5 +100,9 @@ public record CaseView(
                         minIncome),
                 new SamplingView(row.isSampled()),
                 overrides == null ? List.of() : List.copyOf(overrides));
+    }
+
+    private static int nz(Integer value) {
+        return value == null ? 0 : value;
     }
 }

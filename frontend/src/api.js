@@ -58,6 +58,11 @@ export const api = {
       }`
     ),
   getCase: (id) => request(`/api/v1/cases/${id}`),
+  overrideCase: (id, payload) =>
+    request(`/api/v1/cases/${encodeURIComponent(id)}/override`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getApplicant: (id) => request(`/api/v1/cases/${id}/applicant`),
   searchCases: (query, limit = 10) =>
     request(`/api/v1/cases?q=${encodeURIComponent(query)}&limit=${limit}`),
