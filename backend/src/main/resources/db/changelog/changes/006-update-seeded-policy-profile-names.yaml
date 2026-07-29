@@ -1,0 +1,52 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-update-credit-config-v1-product-terms-name
+      author: neo-05
+      preConditions:
+        - onFail: MARK_RAN
+        - onError: HALT
+        - sqlCheck:
+            expectedResult: "1"
+            sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
+      changes:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: PLATINUM
+            where: version = 1
+      rollback:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: '{"PREMIUM":{"minIncome":18000,"maxLimit":5000,"apr":12.9},"PLATINUM":{"minIncome":24000,"maxLimit":8000,"apr":14.9},"STUDENT":{"minIncome":12000,"maxLimit":1500,"apr":9.9}}'
+            where: version = 1
+
+  - changeSet:
+      id: 006-update-credit-config-v2-product-terms-name
+      author: neo-05
+      preConditions:
+        - onFail: MARK_RAN
+        - onError: HALT
+        - sqlCheck:
+            expectedResult: "1"
+            sql: SELECT COUNT(*) FROM credit_config WHERE version = 2
+      changes:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: PREMIUM
+            where: version = 2
+      rollback:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: '{"PREMIUM":{"minIncome":20000,"maxLimit":5500,"apr":13.4},"PLATINUM":{"minIncome":26000,"maxLimit":8500,"apr":15.2},"STUDENT":{"minIncome":12000,"maxLimit":1800,"apr":10.2}}'
+            where: version = 2

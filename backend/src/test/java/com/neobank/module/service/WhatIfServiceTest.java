@@ -99,7 +99,8 @@ class WhatIfServiceTest {
                         new ProductTermDTO("CREDIT_CARD_REWARDS", 20_000, 10_000,
                                 new BigDecimal("24.9")),
                         new ProductTermDTO("CREDIT_CARD_STUDENT", 0, 1_000,
-                                new BigDecimal("34.9"))));
+                                new BigDecimal("34.9"))),
+                null);
 
         WhatIfResponse result = service.simulate(draft);
         assertThat(result.evaluated()).isEqualTo(1);
@@ -113,7 +114,8 @@ class WhatIfServiceTest {
                 7,
                 List.of(
                         new ProductTermDTO("CREDIT_CARD_STANDARD", 12_000, 5_000,
-                                new BigDecimal("29.9"))));
+                                new BigDecimal("29.9"))),
+                null);
 
         assertThatThrownBy(() -> service.simulate(invalid))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -133,6 +135,7 @@ class WhatIfServiceTest {
                         new ProductTermDTO("CREDIT_CARD_REWARDS", 20_000, 10_000,
                                 new BigDecimal("24.9")),
                         new ProductTermDTO("CREDIT_CARD_STUDENT", 0, 1_000,
-                                new BigDecimal("34.9"))));
+                                new BigDecimal("34.9"))),
+                null);
     }
 }

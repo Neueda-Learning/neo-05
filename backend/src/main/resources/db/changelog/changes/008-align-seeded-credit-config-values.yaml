@@ -1,0 +1,116 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-align-credit-config-v1
+      author: neo-05
+      preConditions:
+        - onFail: MARK_RAN
+        - onError: HALT
+        - sqlCheck:
+            expectedResult: "1"
+            sql: SELECT COUNT(*) FROM credit_config WHERE version = 1
+      changes:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: PLATINUM
+              - column:
+                  name: dti_limit
+                  valueNumeric: 0.45
+              - column:
+                  name: rounding_step
+                  valueNumeric: 100
+              - column:
+                  name: sample_every
+                  valueNumeric: 7
+              - column:
+                  name: effective_from
+                  valueDate: 2026-07-28T00:00:00
+              - column:
+                  name: product_code
+                  value: CREDIT_CARD_REWARDS
+              - column:
+                  name: apr
+                  valueNumeric: null
+              - column:
+                  name: min_income
+                  valueNumeric: null
+              - column:
+                  name: max_limit
+                  valueNumeric: null
+            where: version = 1
+
+  - changeSet:
+      id: 008-align-credit-config-v2
+      author: neo-05
+      preConditions:
+        - onFail: MARK_RAN
+        - onError: HALT
+        - sqlCheck:
+            expectedResult: "1"
+            sql: SELECT COUNT(*) FROM credit_config WHERE version = 2
+      changes:
+        - update:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: product_terms
+                  value: PREMIUM
+              - column:
+                  name: dti_limit
+                  valueNumeric: 0.42
+              - column:
+                  name: rounding_step
+                  valueNumeric: 100
+              - column:
+                  name: sample_every
+                  valueNumeric: 5
+              - column:
+                  name: effective_from
+                  valueDate: 2026-08-01T00:00:00
+              - column:
+                  name: product_code
+                  value: CREDIT_CARD_STANDARD
+              - column:
+                  name: apr
+                  valueNumeric: null
+              - column:
+                  name: min_income
+                  valueNumeric: null
+              - column:
+                  name: max_limit
+                  valueNumeric: null
+            where: version = 2
+  - changeSet:
+      id: 008-align-credit-config-v3
+      author: neo-05
+      changes:
+        - insert:
+            tableName: credit_config
+            columns:
+              - column:
+                  name: version
+                  valueNumeric: 3
+              - column:
+                  name: product_terms
+                  value: STUDENT
+              - column:
+                  name: product_code
+                  value: CREDIT_CARD_STANDARD
+              - column:
+                  name: dti_limit
+                  valueNumeric: 0.42
+              - column:
+                  name: rounding_step
+                  valueNumeric: 100
+              - column:
+                  name: sample_every
+                  valueNumeric: 5
+              - column:
+                  name: effective_from
+                  valueDate: 2026-08-01T00:00:00
+      rollback:
+        - delete:
+            tableName: credit_config
+            where: version = 3

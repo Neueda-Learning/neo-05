@@ -224,7 +224,6 @@ public class CreditRecord {
         return capReason;
     }
 
-
     public Instant getSubmittedAt() {
         return submittedAt;
     }

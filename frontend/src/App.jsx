@@ -3,6 +3,7 @@ import { AppShell, Button, SideBrand, SideNav, StatusPill } from './design-syste
 import RequestsScreen from './components/RequestsScreen.jsx';
 import CaseDetailScreen from './components/CaseDetailScreen.jsx';
 import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
+import PolicyListScreen from './components/PolicyListScreen.jsx';
 import CasesScreen from './components/CasesScreen.jsx';
 import WhatIfSimulatorScreen from './components/WhatIfSimulatorScreen.jsx';
 import { api } from './api.js';
@@ -23,7 +24,7 @@ const SCREENS = [
   { id: 'cases', label: 'Cases', hint: 'search decisions' },
   { id: 'what-if', label: 'What-if', hint: 'draft simulation' },
   { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
-  { id: 'policy-editor', label: 'Credit Policy' },
+  { id: 'policy-list', label: 'Credit Policy' },
 ];
 
 /**
@@ -34,6 +35,9 @@ const SCREENS = [
  */
 export default function App() {
   const [screen, setScreen] = useState('applications');
+  const [selectedPolicyVersion, setSelectedPolicyVersion] = useState(null);
+  const [selectedPolicyCode, setSelectedPolicyCode] = useState(null);
+  const [policyListNotice, setPolicyListNotice] = useState(null);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
   const [health, setHealth] = useState(null);
@@ -71,6 +75,14 @@ export default function App() {
     const id = setInterval(refreshHealth, HEALTH_MS);
     return () => clearInterval(id);
   }, [refreshHealth]);
+
+  useEffect(() => {
+    if (!policyListNotice) {
+      return undefined;
+    }
+    const id = setTimeout(() => setPolicyListNotice(null), 3000);
+    return () => clearTimeout(id);
+  }, [policyListNotice]);
 
   const up = !error && health?.status === 'UP';
 
@@ -112,11 +124,35 @@ export default function App() {
             error={error}
             info={info}
             onRowClick={setSelectedCase}
+            onOpenPolicyEditor={() => {
+              setSelectedPolicyVersion(null);
+              setSelectedPolicyCode(null);
+              setScreen('policy-editor');
+            }}
           />
         )
       )}
+      {screen === 'policy-list' && (
+        <PolicyListScreen
+          notice={policyListNotice}
+          onViewDetails={(version, policyCode) => {
+            setSelectedPolicyVersion(version);
+            setSelectedPolicyCode(policyCode || null);
+            setScreen('policy-editor');
+          }}
+        />
+      )}
       {screen === 'policy-editor' && (
-        <PolicyEditorScreen initialDraft={draftForEditor} />
+        <PolicyEditorScreen
+          selectedVersion={selectedPolicyVersion}
+          selectedPolicyCode={selectedPolicyCode}
+          onBackToList={(payload) => {
+            if (payload?.notice) {
+              setPolicyListNotice(payload.notice);
+            }
+            setScreen('policy-list');
+          }}
+        />
       )}
       {screen === 'cases' && <CasesScreen />}
       {screen === 'what-if' && (
