@@ -278,6 +278,7 @@ public class ApplicationService {
     private CreditConfig selectActiveConfig(Application application) {
         String profile = policyProfile(application);
         return creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc(profile)
+                .or(() -> creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc(legacyAlias(profile)))
                 .orElseGet(() -> creditConfigs
                         .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
                         .orElseThrow(() -> new IllegalStateException("No effective credit config found")));
@@ -401,8 +402,8 @@ public class ApplicationService {
 
     private String policyProfile(Application application) {
         return switch (catalogueProductCode(normalizeProductCode(application))) {
-            case "CREDIT_CARD_REWARDS" -> "PLATINUM";
-            case "CREDIT_CARD_LOW_RATE" -> "PREMIUM";
+            case "CREDIT_CARD_REWARDS" -> "REWARDS";
+            case "CREDIT_CARD_LOW_RATE" -> "STANDARD";
             case "CREDIT_CARD_STUDENT" -> "STUDENT";
             default -> throw new IllegalArgumentException("Unsupported productCode");
         };

@@ -50,16 +50,18 @@ public class CreditPolicyService {
     private static final Map<String, String> LEGACY_PRODUCT_CODE_MAP = Map.of(
             "PLATINUM", "CREDIT_CARD_REWARDS",
             "PREMIUM", "CREDIT_CARD_LOW_RATE",
+            "REWARDS", "CREDIT_CARD_REWARDS",
+            "STANDARD", "CREDIT_CARD_LOW_RATE",
             "STUDENT", "CREDIT_CARD_STUDENT"
     );
 
-    private static final List<ProductTermDTO> PLATINUM_PROFILE_TERMS = List.of(
+    private static final List<ProductTermDTO> REWARDS_PROFILE_TERMS = List.of(
             new ProductTermDTO("CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9")),
             new ProductTermDTO("CREDIT_CARD_LOW_RATE", 18000, 5000, new BigDecimal("12.9")),
             new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"))
     );
 
-    private static final List<ProductTermDTO> PREMIUM_PROFILE_TERMS = List.of(
+    private static final List<ProductTermDTO> STANDARD_PROFILE_TERMS = List.of(
             new ProductTermDTO("CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2")),
             new ProductTermDTO("CREDIT_CARD_LOW_RATE", 20000, 5500, new BigDecimal("13.4")),
             new ProductTermDTO("CREDIT_CARD_STUDENT", 12000, 1800, new BigDecimal("10.2"))
@@ -413,10 +415,10 @@ public class CreditPolicyService {
         String normalized = normalizePolicyProfile(rawProductTerms);
 
         return switch (normalized) {
-            case "PLATINUM", "CREDIT_CARD_REWARDS" -> PLATINUM_PROFILE_TERMS;
-            case "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> PREMIUM_PROFILE_TERMS;
+            case "REWARDS", "PLATINUM", "CREDIT_CARD_REWARDS" -> REWARDS_PROFILE_TERMS;
+            case "STANDARD", "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> STANDARD_PROFILE_TERMS;
             case "STUDENT", "CREDIT_CARD_STUDENT" -> STUDENT_PROFILE_TERMS;
-            default -> PREMIUM_PROFILE_TERMS;
+            default -> STANDARD_PROFILE_TERMS;
         };
     }
 
@@ -428,6 +430,13 @@ public class CreditPolicyService {
         String value = rawProductTerms.trim().toUpperCase();
         if ("PLATIUM".equals(value)) {
             return "PLATINUM";
+        }
+        // Accept new canonical names and normalise to the stored legacy values for DB lookup.
+        if ("REWARDS".equals(value)) {
+            return "PLATINUM";
+        }
+        if ("STANDARD".equals(value)) {
+            return "PREMIUM";
         }
         return value;
     }

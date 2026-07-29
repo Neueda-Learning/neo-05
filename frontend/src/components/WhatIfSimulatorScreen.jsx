@@ -20,8 +20,8 @@ import { api } from '../api.js';
 import { statusTone } from '../status.js';
 
 const CATALOGUE = [
-  { code: 'CREDIT_CARD_PREMIUM', label: 'Premium', policyCode: 'PREMIUM' },
-  { code: 'CREDIT_CARD_PLATINUM', label: 'Platinum', policyCode: 'PLATINUM' },
+  { code: 'CREDIT_CARD_PREMIUM', label: 'Standard', policyCode: 'STANDARD' },
+  { code: 'CREDIT_CARD_PLATINUM', label: 'Rewards', policyCode: 'REWARDS' },
   { code: 'CREDIT_CARD_STUDENT', label: 'Student', policyCode: 'STUDENT' },
 ];
 
