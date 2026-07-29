@@ -28,6 +28,9 @@ public class CreditRecord {
     @Column(name = "machine_outcome", nullable = false, length = 16)
     private String machineOutcome;
 
+    @Column(name = "machine_decision_reason", length = 512)
+    private String machineDecisionReason;
+
     @Column(name = "reference", length = 32)
     private String reference;
 
@@ -124,9 +127,10 @@ public class CreditRecord {
                 || STATUS_REFERRED.equals(outcome);
     }
 
-    public void markFinal(String status, String reason) {
+    public void recordMachineDecision(String status, String reason) {
         this.outcome = status;
         this.machineOutcome = status;
+        this.machineDecisionReason = reason;
         this.decisionReason = reason;
         this.decidedAt = Instant.now();
         this.decidedBy = null;
@@ -200,6 +204,10 @@ public class CreditRecord {
 
     public String getMachineOutcome() {
         return machineOutcome;
+    }
+
+    public String getMachineDecisionReason() {
+        return machineDecisionReason;
     }
 
     public String getReference() {

@@ -183,14 +183,14 @@ public class ApplicationService {
                     null);
 
                 if (terms.minIncome() > input.annualIncome()) {
-                row.markFinal(CreditRecord.STATUS_REJECTED, "CRE_REJECTED_MIN_INCOME");
+                row.recordMachineDecision(CreditRecord.STATUS_REJECTED, "CRE_REJECTED_MIN_INCOME");
                 creditRecords.save(row);
                 orchestrator.applicationStatusUpdate(applicationId, Decision.REJECTED, "CRE_REJECTED_MIN_INCOME");
                 return;
                 }
 
                 if (dti == null || dti.compareTo(activeConfig.getDtiLimit()) > 0) {
-                row.markFinal(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
+                row.recordMachineDecision(CreditRecord.STATUS_REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
                 creditRecords.save(row);
                 orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED,
                         "CRE_AFFORDABILITY_EXCEEDED");
@@ -216,7 +216,7 @@ public class ApplicationService {
                     grantedLimit,
                     terms.apr(),
                     capReason);
-                row.markFinal(CreditRecord.STATUS_ACCEPTED, capReason);
+                row.recordMachineDecision(CreditRecord.STATUS_ACCEPTED, capReason);
             creditRecords.save(row);
                 orchestrator.applicationStatusUpdate(applicationId, Decision.ACCEPTED, capReason);
         } catch (RuntimeException e) {
@@ -225,7 +225,7 @@ public class ApplicationService {
             // human and say why. Keep this guard when you replace the body above.
             log.error("processApplication failed for {} — referring", applicationId, e);
             creditRecords.findById(applicationId).ifPresent(row -> {
-                row.markFinal(CreditRecord.STATUS_REFERRED, "module error: " + e);
+                row.recordMachineDecision(CreditRecord.STATUS_REFERRED, "module error: " + e);
                 creditRecords.save(row);
             });
             orchestrator.applicationStatusUpdate(applicationId, Decision.REFERRED,

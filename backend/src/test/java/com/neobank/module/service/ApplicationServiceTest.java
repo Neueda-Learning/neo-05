@@ -256,7 +256,7 @@ class ApplicationServiceTest {
     @Test
     void duplicateAfterDecisionReplaysStoredOutcome() {
         CreditRecord decided = CreditRecord.inProgress("SIM-04");
-        decided.markFinal(CreditRecord.STATUS_ACCEPTED, "stored outcome");
+        decided.recordMachineDecision(CreditRecord.STATUS_ACCEPTED, "stored outcome");
         when(creditRecords.findById("SIM-04")).thenReturn(Optional.of(decided));
 
         service.processApplicationAsync(request("SIM-04"));
@@ -395,6 +395,11 @@ class ApplicationServiceTest {
 
                 service.overrideCase("SIM-OVERRIDE", request);
 
+                assertThat(decided.getMachineOutcome()).isEqualTo(CreditRecord.STATUS_REJECTED);
+                assertThat(decided.getMachineDecisionReason()).isEqualTo("machine decision");
+                assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+                assertThat(decided.getDecisionReason()).isEqualTo("income evidenced at 34k");
+
                 ArgumentCaptor<OverrideLog> savedLog = ArgumentCaptor.forClass(OverrideLog.class);
                 verify(overrideLogs).save(savedLog.capture());
                 assertThat(savedLog.getValue().getApplicationId()).isEqualTo("SIM-OVERRIDE");
@@ -449,7 +454,7 @@ class ApplicationServiceTest {
                                 grantedLimit,
                                 new BigDecimal("12.9"),
                                 null);
-                row.markFinal(outcome, "machine decision");
+                row.recordMachineDecision(outcome, "machine decision");
                 return row;
         }
 }
