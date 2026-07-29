@@ -17,7 +17,9 @@ public record CaseView(
         int creditConfigVersion,
         WorkingsView workings,
         SamplingView sampling,
-        List<OverrideView> overrides) {
+    List<OverrideView> overrides,
+    String decidedBy,
+    String decideDecision) {
 
     public CaseView(String outcome,
                     String machineOutcome,
@@ -25,7 +27,17 @@ public record CaseView(
                     int creditConfigVersion,
                     WorkingsView workings,
                     SamplingView sampling) {
-        this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, List.of());
+        this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, List.of(), null, null);
+    }
+
+    public CaseView(String outcome,
+                    String machineOutcome,
+                    String reference,
+                    int creditConfigVersion,
+                    WorkingsView workings,
+                    SamplingView sampling,
+                    List<OverrideView> overrides) {
+        this(outcome, machineOutcome, reference, creditConfigVersion, workings, sampling, overrides, null, null);
     }
 
     public record WorkingsView(
@@ -40,7 +52,7 @@ public record CaseView(
             Integer grantedLimit,
             BigDecimal apr,
             String capReason,
-            String decisionReason,
+            String machineDecisionReason,
             String productCode,
             Integer minIncome) {
     }
@@ -95,11 +107,13 @@ public record CaseView(
                         row.getGrantedLimit(),
                         row.getApr(),
                         row.getCapReason(),
-                        row.getDecisionReason(),
+                        row.getMachineDecisionReason(),
                         row.getProductCode(),
                         minIncome),
                 new SamplingView(row.isSampled()),
-                overrides == null ? List.of() : List.copyOf(overrides));
+                overrides == null ? List.of() : List.copyOf(overrides),
+                row.getDecidedBy(),
+                row.getDecisionReason());
     }
 
     private static int nz(Integer value) {

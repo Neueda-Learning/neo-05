@@ -528,6 +528,7 @@ public class ApplicationService {
 
         ManualOverrideCommand command = parseOverride(request);
         validateOverride(row, command);
+        Integer grantedLimitToApply = acceptedGrantedLimit(command.internalOutcome(), command.grantedLimit());
 
         if (isDuplicateOverride(applicationId, row, command)) {
             return buildCaseView(row);
@@ -536,7 +537,7 @@ public class ApplicationService {
         String oldOutcome = row.getOutcome();
         row.applyManualOverride(
             command.internalOutcome(),
-            command.grantedLimit(),
+            grantedLimitToApply,
             command.reason(),
             command.operator());
         creditRecords.save(row);
@@ -545,7 +546,7 @@ public class ApplicationService {
             applicationId,
             oldOutcome,
             command.internalOutcome(),
-            command.grantedLimit(),
+            grantedLimitToApply,
             command.reason(),
             command.operator()));
 
@@ -562,12 +563,6 @@ public class ApplicationService {
             CreditRecord row = creditRecords.findById(applicationId)
                 .orElseThrow(() -> new NoSuchElementException("case not found: " + applicationId));
 
-            // Validate that this is a REFERRED case
-            if (!CreditRecord.STATUS_REFERRED.equals(row.getOutcome())) {
-                throw new UnprocessableCaseOverrideException(
-                        "only REFERRED cases can be decided here; case status is " + row.getOutcome());
-            }
-
             String normalizedDecision = request.decision() == null ? "" : request.decision().trim().toUpperCase();
             String internalOutcome = switch (normalizedDecision) {
                 case "ACCEPTED" -> CreditRecord.STATUS_ACCEPTED;
@@ -575,11 +570,13 @@ public class ApplicationService {
                 default -> throw new IllegalArgumentException(
                         "decision must be one of ACCEPTED or REJECTED");
             };
+            validateReferredDecision(row, internalOutcome, request);
+            Integer grantedLimitToApply = acceptedGrantedLimit(internalOutcome, request.grantedLimit());
 
             String oldOutcome = row.getOutcome();
             row.applyManualOverride(
                 internalOutcome,
-                null,
+                grantedLimitToApply,
                 request.reason(),
                 request.operator());
             creditRecords.save(row);
@@ -588,7 +585,7 @@ public class ApplicationService {
                 applicationId,
                 oldOutcome,
                 internalOutcome,
-                null,
+                grantedLimitToApply,
                 request.reason(),
                 request.operator()));
 
@@ -682,7 +679,8 @@ public class ApplicationService {
         };
         String trimmedReason = request.reason().trim();
         String trimmedOperator = request.operator().trim();
-        return new ManualOverrideCommand(normalizedOutcome, internalOutcome, request.grantedLimit(),
+        Integer grantedLimit = acceptedGrantedLimit(internalOutcome, request.grantedLimit());
+        return new ManualOverrideCommand(normalizedOutcome, internalOutcome, grantedLimit,
                 trimmedReason, trimmedOperator);
     }
 
@@ -693,32 +691,44 @@ public class ApplicationService {
         }
 
         if (CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())) {
-            if (command.grantedLimit() == null) {
-                throw new UnprocessableCaseOverrideException(
-                        "grantedLimit is required when newOutcome is APPROVED");
-            }
-            if (command.grantedLimit() <= 0) {
-                throw new UnprocessableCaseOverrideException(
-                        "grantedLimit must be positive when newOutcome is APPROVED");
-            }
-
-            int maximumAllowedLimit = storedThreeWayMinimum(row);
-            if (command.grantedLimit() > maximumAllowedLimit) {
-                throw new UnprocessableCaseOverrideException(
-                        "grantedLimit must not exceed stored three-way minimum of " + maximumAllowedLimit);
-            }
+            validateGrantedLimitAgainstProductMax(row, command.grantedLimit());
         }
     }
 
-    private int storedThreeWayMinimum(CreditRecord row) {
-        Integer incomeBasisLimit = row.getIncomeBasisLimit();
-        Integer requestedLimit = row.getRequestedLimit();
-        Integer productMaxLimit = row.getProductMaxLimit();
-        if (incomeBasisLimit == null || requestedLimit == null || productMaxLimit == null) {
+    private void validateReferredDecision(CreditRecord row,
+                                          String internalOutcome,
+                                          ReferredDecisionRequest request) {
+        if (!CreditRecord.STATUS_REFERRED.equals(row.getOutcome())) {
             throw new UnprocessableCaseOverrideException(
-                    "case " + row.getApplicationId() + " does not have stored limit workings for manual approval");
+                    "only REFERRED cases can be decided here; case status is " + row.getOutcome());
         }
-        return Math.min(incomeBasisLimit, Math.min(requestedLimit, productMaxLimit));
+        if (CreditRecord.STATUS_ACCEPTED.equals(internalOutcome)) {
+            validateGrantedLimitAgainstProductMax(row, request.grantedLimit());
+        }
+    }
+
+    private Integer acceptedGrantedLimit(String internalOutcome, Integer grantedLimit) {
+        return CreditRecord.STATUS_ACCEPTED.equals(internalOutcome) ? grantedLimit : null;
+    }
+
+    private void validateGrantedLimitAgainstProductMax(CreditRecord row, Integer grantedLimit) {
+        if (grantedLimit == null) {
+            throw new UnprocessableCaseOverrideException("grantedLimit is required");
+        }
+        if (grantedLimit <= 0) {
+            throw new UnprocessableCaseOverrideException("grantedLimit must be positive");
+        }
+
+        Integer productMaxLimit = row.getProductMaxLimit();
+        if (productMaxLimit == null || productMaxLimit <= 0) {
+            throw new UnprocessableCaseOverrideException(
+                    "productMaxLimit is missing; cannot validate grantedLimit");
+        }
+
+        if (grantedLimit >= productMaxLimit) {
+            throw new UnprocessableCaseOverrideException(
+                    "grantedLimit must be less than stored productMaxLimit of " + productMaxLimit);
+        }
     }
 
     private boolean isDuplicateOverride(String applicationId,
@@ -727,8 +737,9 @@ public class ApplicationService {
         boolean recordAlreadyMatches = row.getOutcome().equals(command.internalOutcome())
             && Objects.equals(row.getDecisionReason(), command.reason())
             && Objects.equals(row.getDecidedBy(), command.operator())
-            && (!CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())
-            || Objects.equals(row.getGrantedLimit(), command.grantedLimit()));
+            && Objects.equals(
+                    row.getGrantedLimit(),
+                    acceptedGrantedLimit(command.internalOutcome(), command.grantedLimit()));
         if (!recordAlreadyMatches) {
             return false;
         }
