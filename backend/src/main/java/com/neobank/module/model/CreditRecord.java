@@ -131,7 +131,7 @@ public class CreditRecord {
         this.outcome = status;
         this.machineOutcome = status;
         this.machineDecisionReason = reason;
-        this.decisionReason = reason;
+        this.decisionReason = null;
         this.decidedAt = Instant.now();
         this.decidedBy = null;
     }

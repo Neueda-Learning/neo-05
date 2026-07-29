@@ -487,7 +487,17 @@ public class ApplicationService {
                 .ifPresent(row -> orchestrator.applicationStatusUpdate(
                         applicationId,
                         asDecision(row.getOutcome()),
-                        row.getDecisionReason() == null ? "replayed stored outcome" : row.getDecisionReason()));
+                        replayReason(row)));
+    }
+
+    private String replayReason(CreditRecord row) {
+        if (row.getDecisionReason() != null) {
+            return row.getDecisionReason();
+        }
+        if (row.getMachineDecisionReason() != null) {
+            return row.getMachineDecisionReason();
+        }
+        return "replayed stored outcome";
     }
 
     private Decision asDecision(String outcome) {
