@@ -19,6 +19,6 @@ class CreditConfigRepositoryTest {
     @Test
     void currentConfigurationIsTheMaximumVersion() {
         assertThat(creditConfigs.findTopByOrderByVersionDesc())
-                .hasValueSatisfying(config -> assertThat(config.getVersion()).isEqualTo(2));
+                .hasValueSatisfying(config -> assertThat(config.getVersion()).isEqualTo(3));
     }
 }

@@ -63,6 +63,7 @@ public class ApplicationService {
     private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
 
     private final Executor executor;
+    private final CreditRecordAcceptanceService acceptance;
     private final CreditRecordRepository creditRecords;
     private final CreditConfigRepository creditConfigs;
     private final OrchestratorClient orchestrator;
@@ -75,10 +76,12 @@ public class ApplicationService {
      * once.
      */
     public ApplicationService(@Qualifier("applicationTaskExecutor") Executor executor,
+                              CreditRecordAcceptanceService acceptance,
                               CreditRecordRepository creditRecords,
                               CreditConfigRepository creditConfigs,
                               OrchestratorClient orchestrator) {
         this.executor = executor;
+        this.acceptance = acceptance;
         this.creditRecords = creditRecords;
         this.creditConfigs = creditConfigs;
         this.orchestrator = orchestrator;
@@ -92,7 +95,6 @@ public class ApplicationService {
      * the orchestrator is holding a connection open, and a module that does its work on the request
      * thread turns a fast journey into a slow one.</p>
      */
-    @Transactional
     public void processApplicationAsync(ApplicationRequest request) {
         String applicationId = request.applicationId();
         CreditRecord existing = creditRecords.findById(applicationId).orElse(null);
@@ -100,7 +102,8 @@ public class ApplicationService {
         if (existing == null) {
             boolean inserted = tryInsertInProgress(applicationId);
             if (inserted) {
-                scheduleAfterCommit(() -> processApplication(request));
+                // insertInProgress returns only after its independent short transaction commits.
+                executor.execute(() -> processApplication(request));
                 return;
             }
 
@@ -108,7 +111,7 @@ public class ApplicationService {
         }
 
         if (existing != null && existing.hasFinalOutcome()) {
-            scheduleAfterCommit(() -> replayStoredOutcome(applicationId));
+            executor.execute(() -> replayStoredOutcome(applicationId));
         }
     }
 
@@ -134,7 +137,6 @@ public class ApplicationService {
             if (row == null || !row.isInProgress()) {
                 return;
             }
-                row.setApplicantFullname(extractApplicantFullName(request.application()));
                 log.info("HELLO WORLD  - application {} is being processed by the module", applicationId);
                 CreditConfig activeConfig = creditConfigs
                     .findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDescVersionDesc(Instant.now())
@@ -287,18 +289,6 @@ public class ApplicationService {
         return value == null ? 0 : value;
     }
 
-    private String extractApplicantFullName(Application application) {
-        if (application == null || application.applicant() == null) {
-            return null;
-        }
-        String fullName = application.applicant().fullName();
-        if (fullName == null) {
-            return null;
-        }
-        String trimmed = fullName.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
-
     private record ProductTerms(String productCode, int minIncome, int maxLimit, BigDecimal apr) {
     }
 
@@ -314,24 +304,11 @@ public class ApplicationService {
 
     private boolean tryInsertInProgress(String applicationId) {
         try {
-            creditRecords.save(CreditRecord.inProgress(applicationId));
+            acceptance.insertInProgress(applicationId);
             return true;
         } catch (DataIntegrityViolationException duplicate) {
             return false;
         }
-    }
-
-    private void scheduleAfterCommit(Runnable task) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    executor.execute(task);
-                }
-            });
-            return;
-        }
-        executor.execute(task);
     }
 
     private void replayStoredOutcome(String applicationId) {

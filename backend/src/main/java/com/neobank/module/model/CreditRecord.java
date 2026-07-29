@@ -27,46 +27,43 @@ public class CreditRecord {
     @Column(name = "machine_outcome", nullable = false, length = 16)
     private String machineOutcome;
 
-    @Column(name = "reference", nullable = false, length = 32)
+    @Column(name = "reference", length = 32)
     private String reference;
 
-    @Column(name = "applicant_fullname", length = 255)
-    private String applicantFullname;
-
-    @Column(name = "credit_config_version", nullable = false)
+    @Column(name = "credit_config_version")
     private Integer creditConfigVersion;
 
     @Column(name = "credit_config_id")
     private Long creditConfigId;
 
-    @Column(name = "product_code", nullable = false, length = 32)
+    @Column(name = "product_code", length = 32)
     private String productCode;
 
-    @Column(name = "annual_income", nullable = false)
+    @Column(name = "annual_income")
     private Integer annualIncome;
 
-    @Column(name = "monthly_income", nullable = false)
+    @Column(name = "monthly_income")
     private Integer monthlyIncome;
 
-    @Column(name = "monthly_outgoings", nullable = false)
+    @Column(name = "monthly_outgoings")
     private Integer monthlyOutgoings;
 
     @Column(name = "dti", precision = 4, scale = 2)
     private BigDecimal dti;
 
-    @Column(name = "income_basis_limit", nullable = false)
+    @Column(name = "income_basis_limit")
     private Integer incomeBasisLimit;
 
-    @Column(name = "requested_limit", nullable = false)
+    @Column(name = "requested_limit")
     private Integer requestedLimit;
 
-    @Column(name = "product_max_limit", nullable = false)
+    @Column(name = "product_max_limit")
     private Integer productMaxLimit;
 
     @Column(name = "granted_limit")
     private Integer grantedLimit;
 
-    @Column(name = "apr", nullable = false, precision = 3, scale = 1)
+    @Column(name = "apr", precision = 3, scale = 1)
     private BigDecimal apr;
 
     @Column(name = "cap_reason", length = 32)
@@ -93,19 +90,6 @@ public class CreditRecord {
         row.applicationId = applicationId;
         row.outcome = STATUS_IN_PROGRESS;
         row.machineOutcome = STATUS_IN_PROGRESS;
-        row.reference = "pending-" + applicationId;
-        row.creditConfigVersion = 1;
-        row.productCode = "PENDING";
-        row.annualIncome = 0;
-        row.monthlyIncome = 0;
-        row.monthlyOutgoings = 0;
-        row.dti = null;
-        row.incomeBasisLimit = 0;
-        row.requestedLimit = 0;
-        row.productMaxLimit = 0;
-        row.grantedLimit = null;
-        row.apr = BigDecimal.ZERO;
-        row.capReason = null;
         row.sampled = false;
         return row;
     }
@@ -162,10 +146,6 @@ public class CreditRecord {
         this.capReason = capReason;
     }
 
-    public void setApplicantFullname(String applicantFullname) {
-        this.applicantFullname = applicantFullname;
-    }
-
     public String apiStatus() {
         if (STATUS_IN_PROGRESS.equals(outcome)) {
             return "in-progress";
@@ -187,10 +167,6 @@ public class CreditRecord {
 
     public String getReference() {
         return reference;
-    }
-
-    public String getApplicantFullname() {
-        return applicantFullname;
     }
 
     public Integer getCreditConfigVersion() {
