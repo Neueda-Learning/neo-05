@@ -24,3 +24,7 @@ databaseChangeLog:
       file: db/changelog/changes/008-align-seeded-credit-config-values.yaml
   - include:
       file: db/changelog/changes/009-add-override-log-granted-limit.yaml
+  - include:
+      file: db/changelog/changes/010-add-machine-decision-reason.yaml
+  - include:
+      file: db/changelog/changes/011-clear-machine-decision-reason-from-manual-field.yaml

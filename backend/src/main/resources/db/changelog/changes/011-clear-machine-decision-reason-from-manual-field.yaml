@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-clear-machine-decision-reason-from-manual-field
+      author: neo05
+      changes:
+        - sql:
+            sql: |
+              UPDATE credit_record
+              SET decision_reason = NULL
+              WHERE decided_by IS NULL
+                AND machine_decision_reason IS NOT NULL
+                AND decision_reason = machine_decision_reason
+      rollback:
+        - sql:
+            sql: |
+              UPDATE credit_record
+              SET decision_reason = machine_decision_reason
+              WHERE decided_by IS NULL
+                AND decision_reason IS NULL
+                AND machine_decision_reason IS NOT NULL

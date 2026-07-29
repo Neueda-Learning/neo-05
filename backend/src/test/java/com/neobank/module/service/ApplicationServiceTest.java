@@ -256,7 +256,9 @@ class ApplicationServiceTest {
     @Test
     void duplicateAfterDecisionReplaysStoredOutcome() {
         CreditRecord decided = CreditRecord.inProgress("SIM-04");
-        decided.markFinal(CreditRecord.STATUS_ACCEPTED, "stored outcome");
+        decided.recordMachineDecision(CreditRecord.STATUS_ACCEPTED, "stored outcome");
+        assertThat(decided.getMachineDecisionReason()).isEqualTo("stored outcome");
+        assertThat(decided.getDecisionReason()).isNull();
         when(creditRecords.findById("SIM-04")).thenReturn(Optional.of(decided));
 
         service.processApplicationAsync(request("SIM-04"));
@@ -315,7 +317,8 @@ class ApplicationServiceTest {
         assertThat(decided.getDti()).isNull();
         assertThat(decided.getGrantedLimit()).isNull();
         assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_REFERRED);
-        assertThat(decided.getDecisionReason()).isEqualTo("CRE_AFFORDABILITY_EXCEEDED");
+        assertThat(decided.getMachineDecisionReason()).isEqualTo("CRE_AFFORDABILITY_EXCEEDED");
+        assertThat(decided.getDecisionReason()).isNull();
         verify(orchestrator).applicationStatusUpdate(
                 "SIM-ZERO-INCOME", Decision.REFERRED, "CRE_AFFORDABILITY_EXCEEDED");
     }
@@ -395,6 +398,11 @@ class ApplicationServiceTest {
 
                 service.overrideCase("SIM-OVERRIDE", request);
 
+                assertThat(decided.getMachineOutcome()).isEqualTo(CreditRecord.STATUS_REJECTED);
+                assertThat(decided.getMachineDecisionReason()).isEqualTo("machine decision");
+                assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+                assertThat(decided.getDecisionReason()).isEqualTo("income evidenced at 34k");
+
                 ArgumentCaptor<OverrideLog> savedLog = ArgumentCaptor.forClass(OverrideLog.class);
                 verify(overrideLogs).save(savedLog.capture());
                 assertThat(savedLog.getValue().getApplicationId()).isEqualTo("SIM-OVERRIDE");
@@ -449,7 +457,7 @@ class ApplicationServiceTest {
                                 grantedLimit,
                                 new BigDecimal("12.9"),
                                 null);
-                row.markFinal(outcome, "machine decision");
+                row.recordMachineDecision(outcome, "machine decision");
                 return row;
         }
 }

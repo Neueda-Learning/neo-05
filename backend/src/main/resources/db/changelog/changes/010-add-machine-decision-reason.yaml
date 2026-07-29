@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-add-machine-decision-reason
+      author: neo-05
+      comment: Preserve the original machine reason when a later human decision changes the case.
+      changes:
+        - addColumn:
+            tableName: credit_record
+            columns:
+              - column:
+                  name: machine_decision_reason
+                  type: VARCHAR(512)
+        - sql:
+            sql: >
+              UPDATE credit_record
+              SET machine_decision_reason = decision_reason
+              WHERE machine_decision_reason IS NULL
+                AND outcome <> 'IN_PROGRESS'
+      rollback:
+        - dropColumn:
+            tableName: credit_record
+            columnName: machine_decision_reason
