@@ -7,6 +7,7 @@ import {
   PageHeader,
 } from '../design-system';
 import { fetchApi } from '../api.js';
+import { displayProductName } from '../productDisplay.js';
 
 function formatDate(value) {
   if (!value) {
@@ -21,24 +22,15 @@ function formatDate(value) {
 
 function getPolicyName(row) {
   if (row.policy_name && String(row.policy_name).trim()) {
-    return row.policy_name;
+    return displayProductName(row.policy_name);
   }
 
   if (Array.isArray(row.product_terms) && row.product_terms.length > 0) {
-    const displayMap = {
-      CREDIT_CARD_REWARDS: 'PLATINUM',
-      CREDIT_CARD_LOW_RATE: 'PREMIUM',
-      CREDIT_CARD_STUDENT: 'STUDENT',
-      PLATINUM: 'PLATINUM',
-      PREMIUM: 'PREMIUM',
-      STUDENT: 'STUDENT',
-    };
-
     const names = [...new Set(
       row.product_terms
         .map((term) => term?.productCode)
         .filter(Boolean)
-        .map((code) => displayMap[code] || code)
+        .map((code) => displayProductName(code))
     )];
 
     if (names.length > 0) {

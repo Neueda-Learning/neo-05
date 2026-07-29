@@ -20,8 +20,8 @@ import { api } from '../api.js';
 import { statusTone } from '../status.js';
 
 const CATALOGUE = [
-  { code: 'CREDIT_CARD_PREMIUM', label: 'Premium', policyCode: 'PREMIUM' },
-  { code: 'CREDIT_CARD_PLATINUM', label: 'Platinum', policyCode: 'PLATINUM' },
+  { code: 'CREDIT_CARD_PREMIUM', label: 'Rewards', policyCode: 'PREMIUM' },
+  { code: 'CREDIT_CARD_PLATINUM', label: 'Standard', policyCode: 'PLATINUM' },
   { code: 'CREDIT_CARD_STUDENT', label: 'Student', policyCode: 'STUDENT' },
 ];
 
@@ -40,7 +40,7 @@ function normalizeTerms(terms = []) {
   const map = new Map();
   terms.forEach((term) => {
     const code = String(term.productCode || '').toUpperCase();
-    if (code.includes('LOW_RATE') || code.includes('STANDARD') || code.includes('PREMIUM')) {
+    if (code.includes('REWARDS') || code.includes('PREMIUM')) {
       map.set('CREDIT_CARD_PREMIUM', {
         productCode: 'CREDIT_CARD_PREMIUM',
         minIncome: term.minIncome,
@@ -49,7 +49,7 @@ function normalizeTerms(terms = []) {
       });
       return;
     }
-    if (code.includes('REWARDS') || code.includes('PLATINUM')) {
+    if (code.includes('LOW_RATE') || code.includes('STANDARD') || code.includes('PLATINUM')) {
       map.set('CREDIT_CARD_PLATINUM', {
         productCode: 'CREDIT_CARD_PLATINUM',
         minIncome: term.minIncome,

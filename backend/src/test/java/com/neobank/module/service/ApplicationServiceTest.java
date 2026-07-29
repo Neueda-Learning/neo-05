@@ -90,6 +90,16 @@ class ApplicationServiceTest {
                                               int monthlyHousingCost,
                                               int existingCommitments,
                                               int requestedLimit) {
+        return request(id, "CREDIT_CARD_REWARDS", annualIncome, monthlyHousingCost,
+                existingCommitments, requestedLimit);
+    }
+
+    private static ApplicationRequest request(String id,
+                                              String productCode,
+                                              int annualIncome,
+                                              int monthlyHousingCost,
+                                              int existingCommitments,
+                                              int requestedLimit) {
         Application application = new Application(
                 id, "MOBILE_APP", "2026-07-25T09:14:00Z",
                 new Application.Applicant("Maria Nowak", "1996-04-11", null, null, null, null,
@@ -97,7 +107,7 @@ class ApplicationServiceTest {
                 null,
                 null,
                 new Application.Finances(annualIncome, monthlyHousingCost, existingCommitments),
-                new Application.Product("CREDIT_CARD_REWARDS", requestedLimit),
+                new Application.Product(productCode, requestedLimit),
                 null, null);
         return new ApplicationRequest(id, "corr-1", "process-application", application);
     }
@@ -126,7 +136,7 @@ class ApplicationServiceTest {
         CreditRecord inProgress = CreditRecord.inProgress("SIM-PROFILE");
         CreditConfig selected = CreditConfig.of(
                 4,
-                "PLATINUM",
+                "PREMIUM",
                 new BigDecimal("0.45"),
                 new BigDecimal("100"),
                 7,
@@ -134,19 +144,19 @@ class ApplicationServiceTest {
                         "CREDIT_CARD_STUDENT", 12000, 1500, new BigDecimal("9.9"));
         CreditConfig rewardsTerms = CreditConfig.of(
                 4,
-                "PLATINUM",
+                "PREMIUM",
                 new BigDecimal("0.45"),
                 new BigDecimal("100"),
                 7,
                 Instant.now()).withProductTermColumns(
-                        "CREDIT_CARD_REWARDS", 24000, 8000, new BigDecimal("14.9"));
+                        "CREDIT_CARD_REWARDS", 26000, 8500, new BigDecimal("15.2"));
 
         when(creditRecords.findById("SIM-PROFILE"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(inProgress));
-        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PLATINUM"))
+        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PREMIUM"))
                 .thenReturn(Optional.of(selected));
-        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(4, "PLATINUM"))
+        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(4, "PREMIUM"))
                 .thenReturn(java.util.List.of(selected, rewardsTerms));
 
         service.processApplicationAsync(request("SIM-PROFILE"));
@@ -155,8 +165,8 @@ class ApplicationServiceTest {
         verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
         assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
-        assertThat(decided.getProductMaxLimit()).isEqualTo(8000);
-        assertThat(decided.getApr()).isEqualByComparingTo("14.9");
+        assertThat(decided.getProductMaxLimit()).isEqualTo(8500);
+        assertThat(decided.getApr()).isEqualByComparingTo("15.2");
         verify(orchestrator).applicationStatusUpdate(
                 "SIM-PROFILE", Decision.ACCEPTED, "CRE_APPROVED");
     }
@@ -166,7 +176,7 @@ class ApplicationServiceTest {
         CreditRecord inProgress = CreditRecord.inProgress("SIM-SEED-PROFILE");
         CreditConfig selected = CreditConfig.of(
                 1,
-                "PLATINUM",
+                "PREMIUM",
                 new BigDecimal("0.45"),
                 new BigDecimal("100"),
                 7,
@@ -175,9 +185,9 @@ class ApplicationServiceTest {
         when(creditRecords.findById("SIM-SEED-PROFILE"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(inProgress));
-        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PLATINUM"))
+        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PREMIUM"))
                 .thenReturn(Optional.of(selected));
-        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(1, "PLATINUM"))
+        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(1, "PREMIUM"))
                 .thenReturn(java.util.List.of(selected));
 
         service.processApplicationAsync(request("SIM-SEED-PROFILE"));
@@ -186,8 +196,39 @@ class ApplicationServiceTest {
         verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
         CreditRecord decided = saved.getAllValues().getLast();
         assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
-        assertThat(decided.getProductMaxLimit()).isEqualTo(8000);
-        assertThat(decided.getApr()).isEqualByComparingTo("14.9");
+        assertThat(decided.getProductMaxLimit()).isEqualTo(8500);
+        assertThat(decided.getApr()).isEqualByComparingTo("15.2");
+    }
+
+    @Test
+    void standardApplicationsUseThePlatinumPolicyStream() {
+        CreditRecord inProgress = CreditRecord.inProgress("SIM-STANDARD");
+        CreditConfig standardTerms = CreditConfig.of(
+                4,
+                "PLATINUM",
+                new BigDecimal("0.45"),
+                new BigDecimal("100"),
+                7,
+                Instant.now()).withProductTermColumns(
+                        "CREDIT_CARD_LOW_RATE", 18000, 5000, new BigDecimal("12.9"));
+
+        when(creditRecords.findById("SIM-STANDARD"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(inProgress));
+        when(creditConfigs.findFirstByProductTermsOrderByVersionDescConfigIdDesc("PLATINUM"))
+                .thenReturn(Optional.of(standardTerms));
+        when(creditConfigs.findAllByVersionAndProductTermsOrderByConfigIdDesc(4, "PLATINUM"))
+                .thenReturn(java.util.List.of(standardTerms));
+
+        service.processApplicationAsync(request(
+                "SIM-STANDARD", "CREDIT_CARD_STANDARD", 36000, 700, 200, 3000));
+
+        ArgumentCaptor<CreditRecord> saved = ArgumentCaptor.forClass(CreditRecord.class);
+        verify(creditRecords, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        CreditRecord decided = saved.getAllValues().getLast();
+        assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+        assertThat(decided.getProductMaxLimit()).isEqualTo(5000);
+        assertThat(decided.getApr()).isEqualByComparingTo("12.9");
     }
 
     @Test

@@ -401,8 +401,8 @@ public class ApplicationService {
 
     private String policyProfile(Application application) {
         return switch (catalogueProductCode(normalizeProductCode(application))) {
-            case "CREDIT_CARD_REWARDS" -> "PLATINUM";
-            case "CREDIT_CARD_LOW_RATE" -> "PREMIUM";
+            case "CREDIT_CARD_REWARDS" -> "PREMIUM";
+            case "CREDIT_CARD_LOW_RATE" -> "PLATINUM";
             case "CREDIT_CARD_STUDENT" -> "STUDENT";
             default -> throw new IllegalArgumentException("Unsupported productCode");
         };
@@ -413,10 +413,10 @@ public class ApplicationService {
             return "";
         }
         return switch (code.trim().toUpperCase()) {
-            case "REWARDS", "PLATINUM", "CREDIT_CARD_REWARDS", "CREDIT_CARD_PLATINUM" ->
+            case "REWARDS", "PREMIUM", "CREDIT_CARD_REWARDS", "CREDIT_CARD_PREMIUM" ->
                     "CREDIT_CARD_REWARDS";
-            case "STANDARD", "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE",
-                    "CREDIT_CARD_PREMIUM" -> "CREDIT_CARD_LOW_RATE";
+            case "STANDARD", "PLATINUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE",
+                    "CREDIT_CARD_PLATINUM" -> "CREDIT_CARD_LOW_RATE";
             case "STUDENT", "CREDIT_CARD_STUDENT" -> "CREDIT_CARD_STUDENT";
             default -> code.trim().toUpperCase();
         };
@@ -424,8 +424,8 @@ public class ApplicationService {
 
     private String legacyAlias(String normalizedCode) {
         return switch (normalizedCode) {
-            case "STANDARD" -> "PREMIUM";
-            case "REWARDS" -> "PLATINUM";
+            case "STANDARD" -> "PLATINUM";
+            case "REWARDS" -> "PREMIUM";
             default -> normalizedCode;
         };
     }

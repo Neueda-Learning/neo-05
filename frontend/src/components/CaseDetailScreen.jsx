@@ -15,6 +15,7 @@ import {
 } from '../design-system';
 import { statusTone } from '../status.js';
 import { api } from '../api.js';
+import { displayProductName } from '../productDisplay.js';
 
 /**
  * UC 02 + UC 03 — Record detail: stored workings on the left, live applicant info on the right.
@@ -398,7 +399,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
 
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
                   <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Product code</p>
-                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.productCode ?? '—'}</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{displayProductName(applicant.productCode, '—')}</p>
                 </div>
 
                 <div

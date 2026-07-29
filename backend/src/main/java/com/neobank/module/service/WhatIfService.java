@@ -113,16 +113,16 @@ public class WhatIfService {
     }
 
     // Mapping required by the module brief:
-    // low_rate/standard -> premium, rewards -> platinum, student unchanged.
+    // low_rate/standard -> platinum, rewards -> premium, student unchanged.
     private String normalizeProductCodeForEngine(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {
             throw new IllegalArgumentException("productCode is required");
         }
         return switch (rawCode.trim().toUpperCase()) {
-            case "CREDIT_CARD_STANDARD", "STANDARD", "CREDIT_CARD_LOW_RATE", "LOW_RATE", "PREMIUM"
+            case "CREDIT_CARD_STANDARD", "STANDARD", "CREDIT_CARD_LOW_RATE", "LOW_RATE", "PLATINUM",
+                    "CREDIT_CARD_PLATINUM" -> "CREDIT_CARD_PLATINUM";
+            case "CREDIT_CARD_REWARDS", "REWARDS", "PREMIUM", "CREDIT_CARD_PREMIUM"
                     -> "CREDIT_CARD_PREMIUM";
-            case "CREDIT_CARD_REWARDS", "REWARDS", "PLATINUM"
-                    -> "CREDIT_CARD_PLATINUM";
             case "CREDIT_CARD_STUDENT", "STUDENT"
                     -> "CREDIT_CARD_STUDENT";
             default -> rawCode;

@@ -48,8 +48,8 @@ public class CreditPolicyService {
     );
 
     private static final Map<String, String> LEGACY_PRODUCT_CODE_MAP = Map.of(
-            "PLATINUM", "CREDIT_CARD_REWARDS",
-            "PREMIUM", "CREDIT_CARD_LOW_RATE",
+            "PREMIUM", "CREDIT_CARD_REWARDS",
+            "PLATINUM", "CREDIT_CARD_LOW_RATE",
             "STUDENT", "CREDIT_CARD_STUDENT"
     );
 
@@ -413,8 +413,8 @@ public class CreditPolicyService {
         String normalized = normalizePolicyProfile(rawProductTerms);
 
         return switch (normalized) {
-            case "PLATINUM", "CREDIT_CARD_REWARDS" -> PLATINUM_PROFILE_TERMS;
-            case "PREMIUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> PREMIUM_PROFILE_TERMS;
+            case "PREMIUM", "CREDIT_CARD_REWARDS" -> PREMIUM_PROFILE_TERMS;
+            case "PLATINUM", "CREDIT_CARD_STANDARD", "CREDIT_CARD_LOW_RATE" -> PLATINUM_PROFILE_TERMS;
             case "STUDENT", "CREDIT_CARD_STUDENT" -> STUDENT_PROFILE_TERMS;
             default -> PREMIUM_PROFILE_TERMS;
         };
