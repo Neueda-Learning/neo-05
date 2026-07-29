@@ -11,7 +11,6 @@ import {
   Grid,
   MetricTile,
   PageHeader,
-  Section,
   Select,
   Stack,
   TextInput,
@@ -205,18 +204,16 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
             This simulation saves nothing and triggers no callbacks
           </Alert>
 
-          <Section title="Product Terms" className="whatif-section-flush">
-            <Field label="Product Type" htmlFor="productType" className="whatif-product-type-field">
-              <Select
-                id="productType"
-                size="sm"
-                value={selectedProductIndex}
-                onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
-                disabled={simulating}
-                options={CATALOGUE.map((entry, index) => ({ value: index, label: entry.label }))}
-              />
-            </Field>
-          </Section>
+          <Field label="Product Type" htmlFor="productType">
+            <Select
+              id="productType"
+              size="sm"
+              value={selectedProductIndex}
+              onChange={(e) => setSelectedProductIndex(Number(e.target.value))}
+              disabled={simulating}
+              options={CATALOGUE.map((entry, index) => ({ value: index, label: entry.label }))}
+            />
+          </Field>
 
           <Field
             label="DTI Limit"
@@ -316,7 +313,7 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
           )}
 
           <Toolbar className="whatif-section-divider whatif-toolbar-tight">
-            <Button variant="secondary" size="sm" onClick={runSimulation} busy={simulating} busyLabel="Running">
+            <Button variant="primary" size="sm" onClick={runSimulation} busy={simulating} busyLabel="Running">
               Run Simulation
             </Button>
           </Toolbar>
@@ -328,7 +325,7 @@ export default function WhatIfSimulatorScreen({ onOpenPolicyEditor, onOpenCase }
             <div className="whatif-results-head">
               <h2 className="whatif-pane-heading">Results</h2>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="sm"
                 onClick={() => onOpenPolicyEditor?.(draft, CATALOGUE[selectedProductIndex]?.policyCode)}
               >
