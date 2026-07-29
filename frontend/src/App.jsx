@@ -6,6 +6,7 @@ import PolicyEditorScreen from './components/PolicyEditorScreen.jsx';
 import PolicyListScreen from './components/PolicyListScreen.jsx';
 import CasesScreen from './components/CasesScreen.jsx';
 import WhatIfSimulatorScreen from './components/WhatIfSimulatorScreen.jsx';
+import ReferredQueueScreen from './components/ReferredQueueScreen.jsx';
 import { api } from './api.js';
 
 const POLL_MS = 2000;
@@ -13,17 +14,13 @@ const HEALTH_MS = 10000;
 
 /**
  * The screens in the side menu.
- *
- * ⚠️ One real screen and three placeholders — the placeholders are there so the menu shows you
- * where your own screens go, and they are `disabled` so nobody clicks into nothing. Replace them
- * with what your business topic actually needs; the operator UI is a graded deliverable, and a
- * single read-only list is not one.
  */
 const SCREENS = [
   { id: 'applications', label: 'Application' },
   { id: 'cases', label: 'Cases', hint: 'search decisions' },
   { id: 'what-if', label: 'What-if', hint: 'draft simulation' },
   { id: 'overrides', label: 'Overrides', hint: 'operator actions', disabled: true },
+  { id: 'referred-queue', label: 'Referred Queue', hint: 'manual review' },
   { id: 'policy-list', label: 'Credit Policy' },
 ];
 
@@ -44,6 +41,7 @@ export default function App() {
   const [info, setInfo] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
   const [draftForEditor, setDraftForEditor] = useState(null);
+  const [selectedReferredCase, setSelectedReferredCase] = useState(null);
 
   const reload = useCallback(async () => {
     try {
@@ -172,6 +170,12 @@ export default function App() {
             setScreen('applications');
           }}
         />
+      {screen === 'referred-queue' && (
+        selectedReferredCase ? (
+          <CaseDetailScreen caseId={selectedReferredCase} onClose={() => setSelectedReferredCase(null)} />
+        ) : (
+          <ReferredQueueScreen onViewDetails={setSelectedReferredCase} />
+        )
       )}
     </AppShell>
   );
