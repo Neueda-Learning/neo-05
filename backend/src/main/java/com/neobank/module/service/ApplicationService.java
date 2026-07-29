@@ -30,8 +30,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.HttpClientErrorException;
 
 /**
@@ -457,10 +455,9 @@ public class ApplicationService {
         String normalizedOutcome = request.newOutcome() == null ? "" : request.newOutcome().trim().toUpperCase();
         String internalOutcome = switch (normalizedOutcome) {
             case "APPROVED" -> CreditRecord.STATUS_ACCEPTED;
-            case "DECLINED" -> CreditRecord.STATUS_REJECTED;
             case "REFERRED" -> CreditRecord.STATUS_REFERRED;
             default -> throw new IllegalArgumentException(
-                    "newOutcome must be one of APPROVED, REFERRED or DECLINED");
+                    "newOutcome must be one of APPROVED or REFERRED");
         };
         String trimmedReason = request.reason().trim();
         String trimmedOperator = request.operator().trim();
@@ -469,9 +466,9 @@ public class ApplicationService {
     }
 
     private void validateOverride(CreditRecord row, ManualOverrideCommand command) {
-        if (CreditRecord.STATUS_IN_PROGRESS.equals(row.getOutcome())) {
+        if (!CreditRecord.STATUS_REJECTED.equals(row.getOutcome())) {
             throw new UnprocessableCaseOverrideException(
-                    "case " + row.getApplicationId() + " cannot be overridden before it has a final outcome");
+                    "only REJECTED cases can be overridden");
         }
 
         if (CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())) {
@@ -506,20 +503,27 @@ public class ApplicationService {
     private boolean isDuplicateOverride(String applicationId,
                                         CreditRecord row,
                                         ManualOverrideCommand command) {
+        boolean recordAlreadyMatches = row.getOutcome().equals(command.internalOutcome())
+            && Objects.equals(row.getDecisionReason(), command.reason())
+            && Objects.equals(row.getDecidedBy(), command.operator())
+            && (!CreditRecord.STATUS_ACCEPTED.equals(command.internalOutcome())
+            || Objects.equals(row.getGrantedLimit(), command.grantedLimit()));
+        if (!recordAlreadyMatches) {
+            return false;
+        }
+
         return overrideLogs.findFirstByApplicationIdOrderByOverriddenAtDescIdDesc(applicationId)
-                .filter(latest -> latest.getNewOutcome().equals(command.internalOutcome()))
-                .filter(latest -> Objects.equals(latest.getGrantedLimit(), command.grantedLimit()))
-                .filter(latest -> latest.getReason().equals(command.reason()))
-                .filter(latest -> latest.getOperator().equals(command.operator()))
-                .filter(latest -> row.getOutcome().equals(command.internalOutcome()))
-                .isPresent();
+            .map(latest -> latest.getNewOutcome().equals(command.internalOutcome())
+                && Objects.equals(latest.getGrantedLimit(), command.grantedLimit())
+                && latest.getReason().equals(command.reason())
+                && latest.getOperator().equals(command.operator()))
+            .orElse(true);
     }
 
     private String callbackComment(CreditRecord row, ManualOverrideCommand command) {
         return switch (command.externalOutcome()) {
             case "APPROVED" -> "local-manual CRE_MANUAL_APPROVED limit="
                     + command.grantedLimit() + " apr=" + row.getApr() + " reason=" + command.reason();
-            case "DECLINED" -> "local-manual CRE_MANUAL_DECLINED reason=" + command.reason();
             default -> "local-manual CRE_MANUAL_REFERRED reason=" + command.reason();
         };
     }

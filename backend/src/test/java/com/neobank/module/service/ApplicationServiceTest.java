@@ -1,6 +1,7 @@
 package com.neobank.module.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -324,7 +325,6 @@ class ApplicationServiceTest {
                                 "APPROVED", 2800, "income evidenced at 34k", "b.dimovski");
 
                 service.overrideCase("SIM-OVERRIDE", request);
-                service.overrideCase("SIM-OVERRIDE", request);
 
                 ArgumentCaptor<OverrideLog> savedLog = ArgumentCaptor.forClass(OverrideLog.class);
                 verify(overrideLogs).save(savedLog.capture());
@@ -336,6 +336,32 @@ class ApplicationServiceTest {
                                 "SIM-OVERRIDE",
                                 Decision.ACCEPTED,
                                 "local-manual CRE_MANUAL_APPROVED limit=2800 apr=12.9 reason=income evidenced at 34k");
+        }
+
+        @Test
+        void manualOverrideOnlyAllowedFromRejectedCases() {
+                CreditRecord decided = decidedCase("SIM-OVERRIDE-NOT-REJECTED", CreditRecord.STATUS_ACCEPTED, 2000);
+                when(creditRecords.findById("SIM-OVERRIDE-NOT-REJECTED")).thenReturn(Optional.of(decided));
+
+                OverrideCaseRequest request = new OverrideCaseRequest(
+                                "REFERRED", null, "manual review requested", "b.dimovski");
+
+                assertThatThrownBy(() -> service.overrideCase("SIM-OVERRIDE-NOT-REJECTED", request))
+                                .isInstanceOf(UnprocessableCaseOverrideException.class)
+                                .hasMessage("only REJECTED cases can be overridden");
+        }
+
+        @Test
+        void manualOverrideOnlyAllowsApprovedOrReferredTargets() {
+                CreditRecord decided = decidedCase("SIM-OVERRIDE-BAD-TARGET", CreditRecord.STATUS_REJECTED, null);
+                when(creditRecords.findById("SIM-OVERRIDE-BAD-TARGET")).thenReturn(Optional.of(decided));
+
+                OverrideCaseRequest request = new OverrideCaseRequest(
+                                "DECLINED", null, "invalid target", "b.dimovski");
+
+                assertThatThrownBy(() -> service.overrideCase("SIM-OVERRIDE-BAD-TARGET", request))
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessage("newOutcome must be one of APPROVED or REFERRED");
         }
 
         private CreditRecord decidedCase(String applicationId, String outcome, Integer grantedLimit) {
