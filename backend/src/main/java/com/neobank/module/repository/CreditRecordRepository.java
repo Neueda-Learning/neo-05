@@ -12,6 +12,9 @@ public interface CreditRecordRepository extends JpaRepository<CreditRecord, Stri
 
     List<CreditRecord> findAllByOrderBySubmittedAtDescApplicationIdDesc();
 
+        List<CreditRecord> findByOutcomeInOrderBySubmittedAtDescApplicationIdDesc(
+            List<String> outcomes);
+
     List<CreditRecord> findByApplicationIdContainingIgnoreCaseOrderBySubmittedAtDescApplicationIdDesc(
             String applicationId,
             Pageable pageable);

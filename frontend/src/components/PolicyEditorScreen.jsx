@@ -13,7 +13,7 @@ import '../styles.css';
  * - 0 < dtiLimit < 1
  * - sampleEvery ≥ 1
  */
-export default function PolicyEditorScreen() {
+export default function PolicyEditorScreen({ initialDraft = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -47,6 +47,19 @@ export default function PolicyEditorScreen() {
     };
     loadPolicy();
   }, []);
+
+  useEffect(() => {
+    if (!initialDraft) {
+      return;
+    }
+    setPolicy(prev => ({
+      ...prev,
+      dti_limit: initialDraft.dti_limit,
+      rounding_step: initialDraft.rounding_step,
+      sample_every: initialDraft.sample_every,
+      product_terms: initialDraft.product_terms,
+    }));
+  }, [initialDraft]);
 
   // Update policy config field
   const updatePolicyField = (field, value) => {

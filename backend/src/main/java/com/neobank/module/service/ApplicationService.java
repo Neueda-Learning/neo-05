@@ -260,6 +260,8 @@ public class ApplicationService {
             case "CREDIT_CARD_STANDARD" -> "STANDARD";
             case "CREDIT_CARD_REWARDS" -> "REWARDS";
             case "CREDIT_CARD_STUDENT" -> "STUDENT";
+            case "CREDIT_CARD_PREMIUM" -> "PREMIUM";
+            case "CREDIT_CARD_PLATINUM" -> "PLATINUM";
             default -> code;
         };
     }

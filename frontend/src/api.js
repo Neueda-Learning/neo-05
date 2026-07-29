@@ -51,6 +51,11 @@ export const api = {
   listApplications: () => request('/api/v1/applications'),
   getApplication: (id) => request(`/api/v1/applications/${id}`),
   getCase: (id) => request(`/api/v1/cases/${id}`),
+  getCreditPolicy: () => request('/api/v1/credit-policy'),
+  simulateWhatIf: (draft) => request('/api/v1/what-if', {
+    method: 'POST',
+    body: JSON.stringify({ draft }),
+  }),
   getApplicant: (id) => request(`/api/v1/cases/${id}/applicant`),
   searchCases: (query, limit = 10) =>
     request(`/api/v1/cases?q=${encodeURIComponent(query)}&limit=${limit}`),

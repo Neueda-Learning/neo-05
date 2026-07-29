@@ -177,6 +177,10 @@ public class CreditRecord {
         return creditConfigId;
     }
 
+    public String getProductCode() {
+        return productCode;
+    }
+
     public Integer getAnnualIncome() {
         return annualIncome;
     }
