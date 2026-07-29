@@ -12,6 +12,7 @@ import com.neobank.module.service.UnprocessableCaseOverrideException;
 import com.neobank.module.service.ApplicationService;
 import com.neobank.module.service.ApplicantUnavailableException;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.NoSuchElementException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,7 +120,10 @@ class CasesControllerTest {
                         2833, 10000, 3000, 2800,
                         new BigDecimal("24.9"), null,
                         "income evidenced at 34k", "PREMIUM", 20000),
-                new CaseView.SamplingView(false));
+                new CaseView.SamplingView(false),
+                List.of(),
+                "b.dimovski",
+                "income evidenced at 34k");
 
         when(applications.overrideCase(org.mockito.ArgumentMatchers.eq("app-1234"), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(view);
@@ -134,7 +138,9 @@ class CasesControllerTest {
                 .andExpect(jsonPath("$.outcome").value("ACCEPTED"))
                 .andExpect(jsonPath("$.machineOutcome").value("REJECTED"))
                 .andExpect(jsonPath("$.workings.grantedLimit").value(2800))
-                .andExpect(jsonPath("$.workings.decisionReason").value("income evidenced at 34k"));
+                .andExpect(jsonPath("$.decidedBy").value("b.dimovski"))
+                .andExpect(jsonPath("$.decideDecision").value("income evidenced at 34k"))
+                .andExpect(jsonPath("$.workings.machineDecisionReason").value("income evidenced at 34k"));
     }
 
     @Test
@@ -166,19 +172,19 @@ class CasesControllerTest {
     }
 
     @Test
-    void overrideReturns422WhenApprovalExceedsStoredBasis() throws Exception {
+        void overrideReturns422WhenGrantLimitExceedsProductMaxLimit() throws Exception {
         when(applications.overrideCase(org.mockito.ArgumentMatchers.eq("app-1234"), org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new UnprocessableCaseOverrideException(
-                        "grantedLimit must not exceed stored three-way minimum of 2800"));
+                                                "grantedLimit must be less than stored productMaxLimit of 5000"));
 
         mvc.perform(post("/cases/app-1234/override")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"newOutcome":"APPROVED","grantedLimit":2900,
+                                        {"newOutcome":"APPROVED","grantedLimit":5000,
                                 "reason":"income evidenced at 34k","operator":"b.dimovski"}
                                 """))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message")
-                        .value("grantedLimit must not exceed stored three-way minimum of 2800"));
+                                .value("grantedLimit must be less than stored productMaxLimit of 5000"));
     }
 }

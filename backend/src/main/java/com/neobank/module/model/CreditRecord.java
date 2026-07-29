@@ -141,9 +141,7 @@ public class CreditRecord {
                                     String reason,
                                     String operator) {
         this.outcome = status;
-        if (STATUS_ACCEPTED.equals(status)) {
-            this.grantedLimit = grantedLimit;
-        }
+        this.grantedLimit = STATUS_ACCEPTED.equals(status) ? grantedLimit : null;
         if (STATUS_REFERRED.equals(status)) {
             this.claimedBy = null;
             this.claimedAt = null;

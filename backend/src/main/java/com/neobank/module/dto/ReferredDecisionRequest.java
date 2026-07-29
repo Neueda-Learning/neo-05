@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record ReferredDecisionRequest(
         @NotBlank(message = "must not be blank") String decision,
+        Integer grantedLimit,
         @NotBlank(message = "must not be blank") String reason,
         @NotBlank(message = "must not be blank") String operator) {
 }

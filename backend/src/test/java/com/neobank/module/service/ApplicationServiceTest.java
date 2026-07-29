@@ -21,6 +21,7 @@ import com.neobank.module.repository.CreditConfigRepository;
 import com.neobank.module.repository.CreditRecordRepository;
 import com.neobank.module.repository.OverrideLogRepository;
 import com.neobank.module.dto.OverrideCaseRequest;
+import com.neobank.module.dto.ReferredDecisionRequest;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -439,6 +440,60 @@ class ApplicationServiceTest {
                 assertThatThrownBy(() -> service.overrideCase("SIM-OVERRIDE-BAD-TARGET", request))
                                 .isInstanceOf(IllegalArgumentException.class)
                                 .hasMessage("newOutcome must be one of APPROVED or REFERRED");
+        }
+
+        @Test
+        void manualOverrideRequiresGrantedLimit() {
+                CreditRecord decided = decidedCase("SIM-OVERRIDE-NO-LIMIT", CreditRecord.STATUS_REJECTED, null);
+                when(creditRecords.findById("SIM-OVERRIDE-NO-LIMIT")).thenReturn(Optional.of(decided));
+
+                OverrideCaseRequest request = new OverrideCaseRequest(
+                                "APPROVED", null, "manual review requested", "b.dimovski");
+
+                assertThatThrownBy(() -> service.overrideCase("SIM-OVERRIDE-NO-LIMIT", request))
+                                .isInstanceOf(UnprocessableCaseOverrideException.class)
+                                .hasMessage("grantedLimit is required");
+        }
+
+        @Test
+        void manualOverrideRequiresGrantedLimitBelowProductMax() {
+                CreditRecord decided = decidedCase("SIM-OVERRIDE-MAX-LIMIT", CreditRecord.STATUS_REJECTED, null);
+                when(creditRecords.findById("SIM-OVERRIDE-MAX-LIMIT")).thenReturn(Optional.of(decided));
+
+                OverrideCaseRequest request = new OverrideCaseRequest(
+                                "APPROVED", 5000, "manual review requested", "b.dimovski");
+
+                assertThatThrownBy(() -> service.overrideCase("SIM-OVERRIDE-MAX-LIMIT", request))
+                                .isInstanceOf(UnprocessableCaseOverrideException.class)
+                                .hasMessage("grantedLimit must be less than stored productMaxLimit of 5000");
+        }
+
+        @Test
+        void decideReferredCaseStoresGrantedLimit() {
+                CreditRecord decided = decidedCase("SIM-REFERRED", CreditRecord.STATUS_REFERRED, null);
+                when(creditRecords.findById("SIM-REFERRED")).thenReturn(Optional.of(decided));
+
+                ReferredDecisionRequest request = new ReferredDecisionRequest(
+                                "ACCEPTED", 2800, "manual approval", "b.dimovski");
+
+                service.decideReferredCase("SIM-REFERRED", request);
+
+                assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_ACCEPTED);
+                assertThat(decided.getGrantedLimit()).isEqualTo(2800);
+        }
+
+        @Test
+        void decideReferredRejectIgnoresGrantedLimit() {
+                CreditRecord decided = decidedCase("SIM-REFERRED-REJECT", CreditRecord.STATUS_REFERRED, 2400);
+                when(creditRecords.findById("SIM-REFERRED-REJECT")).thenReturn(Optional.of(decided));
+
+                ReferredDecisionRequest request = new ReferredDecisionRequest(
+                                "REJECTED", 2800, "manual rejection", "b.dimovski");
+
+                service.decideReferredCase("SIM-REFERRED-REJECT", request);
+
+                assertThat(decided.getOutcome()).isEqualTo(CreditRecord.STATUS_REJECTED);
+                assertThat(decided.getGrantedLimit()).isNull();
         }
 
         private CreditRecord decidedCase(String applicationId, String outcome, Integer grantedLimit) {
