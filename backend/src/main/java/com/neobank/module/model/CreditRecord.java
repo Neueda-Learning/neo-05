@@ -1,12 +1,13 @@
 package com.neobank.module.model;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
-import java.time.Instant;
 
 @Entity
 @Table(name = "credit_record")
@@ -145,6 +146,12 @@ public class CreditRecord {
         }
         this.decisionReason = reason;
         this.decidedBy = operator;
+        this.decidedAt = Instant.now();
+    }
+
+    public void applyManualOverride(String status, String reason) {
+        this.outcome = status;
+        this.decisionReason = reason;
         this.decidedAt = Instant.now();
     }
 

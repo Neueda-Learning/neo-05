@@ -25,7 +25,15 @@ async function request(path, options = {}) {
     throw error;
   }
   if (res.status === 204) return null;
-  return res.json();
+  
+  // Handle empty response body
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
@@ -68,4 +76,11 @@ export const api = {
     request(`/api/v1/cases?q=${encodeURIComponent(query)}&limit=${limit}`),
   getCaseApplicant: (applicationId) =>
     request(`/api/v1/cases/${encodeURIComponent(applicationId)}/applicant`),
+  listReferredApplications: () =>
+    request('/api/v1/applications?status=REFERRED'),
+  updateCaseStatus: (id, status, comment = '') =>
+    request(`/api/v1/cases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, comment }),
+    }),
 };
