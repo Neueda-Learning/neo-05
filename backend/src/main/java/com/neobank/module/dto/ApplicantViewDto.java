@@ -1,44 +1,48 @@
 package com.neobank.module.dto;
 
 import com.neobank.module.integrations.orchestrator.Application;
+import com.neobank.module.model.CreditRecord;
 
 /**
  * The read model for GET /cases/{applicationId}/applicant — applicant details fetched live
  * from the orchestrator. This is a live proxy, never persisted.
+ *
+ * <p>When the orchestrator returns 404, a partial fallback is built from the stored
+ * {@link CreditRecord}: only {@code fullName} (null) and {@code productCode} are meaningful;
+ * all other fields are null / zero so the UI can display "—".</p>
  */
 public record ApplicantViewDto(
         String fullName,
         String dateOfBirth,
         String employmentStatus,
         FinancesView finances,
-        int requestedCreditLimit) {
+        Integer requestedCreditLimit,
+        String channel,
+        String productCode,
+        boolean partial) {
 
     public record FinancesView(
-            int annualIncome,
-            int monthlyHousingCost,
-            int existingCreditCommitments) {}
+            Integer annualIncome,
+            Integer monthlyHousingCost,
+            Integer existingCreditCommitments) {}
 
     public static ApplicantViewDto of(Application application) {
-        int annualIncome = 0;
-        int monthlyHousingCost = 0;
-        int existingCreditCommitments = 0;
-        int requestedCreditLimit = 0;
-        String employmentStatus = "";
+        Integer annualIncome = null;
+        Integer monthlyHousingCost = null;
+        Integer existingCreditCommitments = null;
+        Integer requestedCreditLimit = null;
+        String employmentStatus = null;
+        String productCode = null;
 
         if (application.finances() != null) {
-            annualIncome = application.finances().annualIncome() != null
-                    ? application.finances().annualIncome()
-                    : 0;
-            monthlyHousingCost = application.finances().monthlyHousingCost() != null
-                    ? application.finances().monthlyHousingCost()
-                    : 0;
-            existingCreditCommitments = application.finances().existingCreditCommitments() != null
-                    ? application.finances().existingCreditCommitments()
-                    : 0;
+            annualIncome = application.finances().annualIncome();
+            monthlyHousingCost = application.finances().monthlyHousingCost();
+            existingCreditCommitments = application.finances().existingCreditCommitments();
         }
 
-        if (application.product() != null && application.product().requestedCreditLimit() != null) {
+        if (application.product() != null) {
             requestedCreditLimit = application.product().requestedCreditLimit();
+            productCode = application.product().productCode();
         }
 
         if (application.employment() != null && application.employment().status() != null) {
@@ -46,10 +50,26 @@ public record ApplicantViewDto(
         }
 
         return new ApplicantViewDto(
-                application.applicant().fullName(),
-                application.applicant().dateOfBirth(),
+                application.applicant() != null ? application.applicant().fullName() : null,
+                application.applicant() != null ? application.applicant().dateOfBirth() : null,
                 employmentStatus,
                 new FinancesView(annualIncome, monthlyHousingCost, existingCreditCommitments),
-                requestedCreditLimit);
+                requestedCreditLimit,
+                application.channel(),
+                productCode,
+                false);
+    }
+
+    /** Fallback built from the stored credit record when the orchestrator returns 404. */
+    public static ApplicantViewDto fromRecord(CreditRecord record) {
+        return new ApplicantViewDto(
+                null,
+                null,
+                null,
+                new FinancesView(null, null, null),
+                null,
+                null,
+                record.getProductCode(),
+                true);
     }
 }
