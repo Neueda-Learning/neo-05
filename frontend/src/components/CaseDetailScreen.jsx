@@ -15,6 +15,8 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   const [caseError, setCaseError] = useState(null);
   const [applicantError, setApplicantError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,6 +49,22 @@ export default function CaseDetailScreen({ caseId, onClose }) {
     loadData();
   }, [caseId]);
 
+  const handleStatusUpdate = async (status) => {
+    setUpdating(true);
+    setUpdateError(null);
+    try {
+      await api.updateCaseStatus(caseId, status);
+      // Update local state to reflect the change
+      setCaseData(prev => ({ ...prev, outcome: status }));
+      // Close the detail screen after successful update
+      onClose();
+    } catch (error) {
+      setUpdateError(error.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: 'var(--ds-space-6)', textAlign: 'center' }}>
@@ -56,11 +74,60 @@ export default function CaseDetailScreen({ caseId, onClose }) {
   }
 
   const workings = caseData?.workings;
-  const dtiStatus = !workings?.dti
-    ? null
-    : workings.dti > workings.dtiLimit
-      ? 'REFERRED'
-      : 'PASSED';
+  const outcome = caseData?.outcome;
+  const decisionReason = workings?.decisionReason;
+  console.log("decision reason: ", decisionReason);
+  console.log("full caseData: ", caseData);
+  console.log("workings: ", workings);
+
+  // Split multi-reason string (reasons joined by '-', e.g. "CRE_APPROVED-CRE_LIMIT_CAPPED_TO_REQUEST")
+  const reasonCodes = decisionReason ? decisionReason.split('-') : [];
+  const hasReason = (code) => reasonCodes.includes(code);
+
+  const KNOWN_REASONS = [
+    'CRE_REJECTED_MIN_INCOME',
+    'CRE_AFFORDABILITY_EXCEEDED',
+    'CRE_APPROVED',
+    'CRE_LIMIT_CAPPED_TO_REQUEST',
+    'CRE_LIMIT_CAPPED_TO_BAND_MAX',
+  ];
+  const isUnknownReason = !decisionReason || !reasonCodes.some(r => KNOWN_REASONS.includes(r));
+
+  // Determine step statuses based on decisionReason
+  const isMinIncomeFailure = hasReason('CRE_REJECTED_MIN_INCOME');
+  const isAffordabilityFailure = hasReason('CRE_AFFORDABILITY_EXCEEDED');
+  const isApproved = hasReason('CRE_APPROVED') ||
+                     hasReason('CRE_LIMIT_CAPPED_TO_REQUEST') ||
+                     hasReason('CRE_LIMIT_CAPPED_TO_BAND_MAX');
+
+  const step1Status = isUnknownReason ? 'UNKNOWN' : (isMinIncomeFailure ? 'FAILED' : 'PASSED');
+  const step1Tone = isUnknownReason ? null : (isMinIncomeFailure ? 'negative' : 'positive');
+
+  const step2Status = isUnknownReason ? 'UNKNOWN' : (isMinIncomeFailure ? 'PENDING' : (isAffordabilityFailure ? 'REVIEW' : 'PASSED'));
+  const step2Tone = isUnknownReason ? null : (isMinIncomeFailure ? null : (isAffordabilityFailure ? 'warning' : 'positive'));
+
+  const step3Status = isUnknownReason ? 'UNKNOWN' : ((isMinIncomeFailure || isAffordabilityFailure) ? 'PENDING' : 'PASSED');
+  const step3Tone = isUnknownReason ? null : ((isMinIncomeFailure || isAffordabilityFailure) ? null : 'positive');
+
+  console.log("step1Status: ", step1Status, "step2Status: ", step2Status, "step3Status: ", step3Status);  // Overall outcome badge tone
+  const overallTone = isUnknownReason ? null : (isMinIncomeFailure ? 'negative' : (isAffordabilityFailure ? 'warning' : 'positive'));
+
+  // Get reason text for display
+  const getMinIncomeReason = () => {
+    const minIncome = workings?.minIncome;
+    const actualIncome = workings?.annualIncome;
+    if (minIncome !== null && minIncome !== undefined && actualIncome !== undefined) {
+      return `Expected minimum income £${minIncome.toLocaleString()}, real income £${actualIncome.toLocaleString()}`;
+    }
+    return `Expected minimum income not met`;
+  };
+
+  const getAffordabilityReason = () => {
+    if (workings?.dti === null) {
+      return `Zero income cannot be afforded`;
+    }
+    return `Expected DTI ${workings?.dtiLimit?.toFixed(2) ?? '—'}, but ${workings?.dti?.toFixed(2) ?? '—'}`;
+  };
 
   return (
     <>
@@ -86,15 +153,16 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           <Card style={{ marginBottom: 'var(--ds-space-3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ds-space-2)' }}>
               <h3>Check / step 1</h3>
-              {workings && workings.annualIncome > 0 ? (
-                <Badge tone="positive">PASSED</Badge>
-              ) : (
-                <Badge tone="negative">REVIEW</Badge>
-              )}
+              <Badge tone={step1Tone}>{step1Status}</Badge>
             </div>
             <p style={{ color: 'var(--ds-text-secondary)', margin: 0 }}>
               minimum income eligibility
             </p>
+            {isMinIncomeFailure && (
+              <div style={{ marginTop: 'var(--ds-space-2)', fontSize: '0.875rem', color: 'var(--ds-text-negative, #B3403A)' }}>
+                <p style={{ margin: '0.25rem 0' }}>{getMinIncomeReason()}</p>
+              </div>
+            )}
             {workings && (
               <div style={{ marginTop: 'var(--ds-space-2)', fontSize: '0.875rem' }}>
                 <p style={{ margin: '0.25rem 0' }}>Annual Income: £{workings.annualIncome.toLocaleString()}</p>
@@ -107,13 +175,16 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           <Card style={{ marginBottom: 'var(--ds-space-3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ds-space-2)' }}>
               <h3>Check / step 2</h3>
-              <Badge tone={dtiStatus === 'REFERRED' ? 'warning' : 'positive'}>
-                {dtiStatus || 'PENDING'}
-              </Badge>
+              <Badge tone={step2Tone}>{step2Status}</Badge>
             </div>
             <p style={{ color: 'var(--ds-text-secondary)', margin: 0 }}>
               affordability · debt-to-income ratio
             </p>
+            {isAffordabilityFailure && (
+              <div style={{ marginTop: 'var(--ds-space-2)', fontSize: '0.875rem', color: 'var(--ds-text-warning, #B7791F)' }}>
+                <p style={{ margin: '0.25rem 0' }}>{getAffordabilityReason()}</p>
+              </div>
+            )}
             {workings && (
               <div style={{ marginTop: 'var(--ds-space-2)', fontSize: '0.875rem' }}>
                 <p style={{ margin: '0.25rem 0' }}>
@@ -128,7 +199,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--ds-space-2)' }}>
               <h3>Check / step 3</h3>
-              <Badge tone="positive">PASSED</Badge>
+              <Badge tone={step3Tone}>{step3Status}</Badge>
             </div>
             <p style={{ color: 'var(--ds-text-secondary)', margin: 0 }}>
               credit limit calculation · income basis and rounding
@@ -158,27 +229,38 @@ export default function CaseDetailScreen({ caseId, onClose }) {
               </Alert>
             )}
 
+            {updateError && (
+              <Alert tone="negative" title="Could not update status">
+                {updateError}
+              </Alert>
+            )}
+
             {applicant && (
               <div style={{ fontSize: '0.875rem' }}>
+                {applicant.partial && (
+                  <div style={{ marginBottom: 'var(--ds-space-3)', fontSize: '0.75rem', color: 'var(--ds-text-secondary)' }}>
+                    Orchestrator unavailable — showing stored data only
+                  </div>
+                )}
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
                   <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Full name</p>
-                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.fullName}</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.fullName ?? '—'}</p>
                 </div>
 
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
                   <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Date of birth</p>
-                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.dateOfBirth}</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.dateOfBirth ?? '—'}</p>
                 </div>
 
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
                   <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Employment status</p>
-                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.employmentStatus}</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.employmentStatus ?? '—'}</p>
                 </div>
 
                 <div style={{ marginBottom: 'var(--ds-space-3)' }}>
                   <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Annual income</p>
                   <p style={{ margin: 0, fontWeight: 500 }}>
-                    £{applicant.finances.annualIncome.toLocaleString()}
+                    {applicant.finances?.annualIncome != null ? `£${applicant.finances.annualIncome.toLocaleString()}` : '—'}
                   </p>
                 </div>
 
@@ -187,7 +269,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     Monthly housing cost
                   </p>
                   <p style={{ margin: 0, fontWeight: 500 }}>
-                    £{applicant.finances.monthlyHousingCost.toLocaleString()}
+                    {applicant.finances?.monthlyHousingCost != null ? `£${applicant.finances.monthlyHousingCost.toLocaleString()}` : '—'}
                   </p>
                 </div>
 
@@ -196,7 +278,7 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     Existing credit commitments
                   </p>
                   <p style={{ margin: 0, fontWeight: 500 }}>
-                    £{applicant.finances.existingCreditCommitments.toLocaleString()}
+                    {applicant.finances?.existingCreditCommitments != null ? `£${applicant.finances.existingCreditCommitments.toLocaleString()}` : '—'}
                   </p>
                 </div>
 
@@ -205,8 +287,18 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     Requested credit limit
                   </p>
                   <p style={{ margin: 0, fontWeight: 500 }}>
-                    £{applicant.requestedCreditLimit.toLocaleString()}
+                    {applicant.requestedCreditLimit != null ? `£${applicant.requestedCreditLimit.toLocaleString()}` : '—'}
                   </p>
+                </div>
+
+                <div style={{ marginBottom: 'var(--ds-space-3)' }}>
+                  <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Channel</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.channel ?? '—'}</p>
+                </div>
+
+                <div style={{ marginBottom: 'var(--ds-space-3)' }}>
+                  <p style={{ color: 'var(--ds-text-secondary)', margin: '0 0 0.25rem 0' }}>Product code</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{applicant.productCode ?? '—'}</p>
                 </div>
 
                 <div
@@ -214,11 +306,30 @@ export default function CaseDetailScreen({ caseId, onClose }) {
                     marginTop: 'var(--ds-space-4)',
                     paddingTop: 'var(--ds-space-3)',
                     borderTop: '1px solid var(--ds-border)',
-                    fontSize: '0.75rem',
-                    color: 'var(--ds-text-secondary)',
                   }}
                 >
-                  fetched on open — never stored
+                  <div style={{ fontSize: '0.75rem', color: 'var(--ds-text-secondary)', marginBottom: 'var(--ds-space-3)' }}>
+                    fetched on open — never stored
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 'var(--ds-space-2)' }}>
+                    <Button
+                      variant="primary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusUpdate('ACCEPTED')}
+                      disabled={updating}
+                    >
+                      {updating ? 'Updating…' : 'Accept'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusUpdate('REJECTED')}
+                      disabled={updating}
+                    >
+                      {updating ? 'Updating…' : 'Decline'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
