@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,6 +32,20 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neobank.module.dto.ApplicantViewDto;
+import com.neobank.module.dto.CaseView;
+import com.neobank.module.dto.DemoShowcaseView;
+import com.neobank.module.integrations.orchestrator.Application;
+import com.neobank.module.integrations.orchestrator.ApplicationRequest;
+import com.neobank.module.integrations.orchestrator.OrchestratorClient;
+import com.neobank.module.model.CreditConfig;
+import com.neobank.module.model.CreditRecord;
+import com.neobank.module.model.Decision;
+import com.neobank.module.repository.CreditConfigRepository;
+import com.neobank.module.repository.CreditRecordRepository;
 
 /**
  * <h2>Your module's work happens here. This is the class you came here to write.</h2>
@@ -533,5 +548,31 @@ public class ApplicationService {
                                          Integer grantedLimit,
                                          String reason,
                                          String operator) {
+    }
+    /**
+     * Update the decision status after manual review (UC 04).
+     * Called when a user accepts or declines a referred application in the UI.
+     * Updates the local record and reports the decision back to the orchestrator.
+     *
+     * @param applicationId the case id
+     * @param status        {@code ACCEPTED} or {@code REJECTED}
+     * @param comment       reason for the decision
+     */
+    @Transactional
+    public void updateCaseStatus(String applicationId, String status, String comment) {
+        CreditRecord record = creditRecords.findById(applicationId)
+            .orElseThrow(() -> new NoSuchElementException("Application " + applicationId + " not found"));
+
+        try {
+            Decision decision = Decision.valueOf(status);
+            record.applyManualOverride(status, comment != null ? comment : "");
+            creditRecords.save(record);
+            log.info("Updated {} to {} (manual override)", applicationId, decision);
+
+            // Report the decision back to the orchestrator
+            orchestrator.applicationStatusUpdate(applicationId, decision, comment != null ? comment : "");
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid status: " + status, e);
+        }
     }
 }
